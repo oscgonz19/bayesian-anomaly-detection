@@ -74,6 +74,9 @@ Esta distinción importa operacionalmente:
 
 Los datos de seguridad son inherentemente escasos—muchas entidades tienen historial limitado. Los modelos jerárquicos Bayesianos manejan esto mediante **pooling parcial**:
 
+![Pooling Parcial Explicado](../images/partial_pooling_explained.png)
+*Pooling parcial: entidades escasas se contraen hacia la media poblacional, entidades densas mantienen su propia tasa*
+
 - Entidades con **muchas observaciones**: Estimaciones impulsadas por sus propios datos
 - Entidades con **pocas observaciones**: Estimaciones se "contraen" hacia la media poblacional
 
@@ -120,6 +123,9 @@ Donde:
 ## Arquitectura del Sistema
 
 ### Pipeline de Alto Nivel
+
+![Arquitectura del Pipeline](../images/pipeline_architecture.png)
+*Pipeline completo: desde datos crudos hasta anomalías rankeadas con incertidumbre*
 
 ```
 ┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐

@@ -14,6 +14,9 @@
 
 ### Graphical Model
 
+![Hierarchical Model Diagram](../images/hierarchical_model_diagram.png)
+*Three-level hierarchical structure: Population → Entity → Observation*
+
 ```
                     ┌─────────┐
                     │   μ     │  Population mean rate
@@ -334,6 +337,9 @@ with model:
 ```
 
 This adds `posterior_predictive` group to trace with simulated y values.
+
+![Scoring Explanation](../images/scoring_explanation.png)
+*How anomaly scores are computed: from distribution to ranked output with uncertainty*
 
 ---
 

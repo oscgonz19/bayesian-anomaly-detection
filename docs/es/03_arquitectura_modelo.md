@@ -14,6 +14,9 @@
 
 ### Modelo Gráfico
 
+![Diagrama del Modelo Jerárquico](../images/hierarchical_model_diagram.png)
+*Estructura jerárquica de tres niveles: Población → Entidad → Observación*
+
 ```
                     ┌─────────┐
                     │   μ     │  Tasa media poblacional
@@ -294,6 +297,9 @@ with model:
 1. **Ajuste (1000 iteraciones)**: Adaptar tamaño de paso y matriz de masa
 2. **Muestreo (2000 iteraciones)**: Generar muestras posteriores
 3. **Post-procesamiento**: Calcular diagnósticos, añadir predictivo posterior
+
+![Explicación del Scoring](../images/scoring_explanation.png)
+*Cómo se calculan las puntuaciones de anomalía: de distribución a salida rankeada con incertidumbre*
 
 ---
 

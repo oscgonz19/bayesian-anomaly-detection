@@ -28,6 +28,13 @@ This project explores how **hierarchical Bayesian models** can be used for **beh
 
 **Key Result**: +30 PR-AUC points over classical methods when applied to count-based, entity-structured rare-event data.
 
+<div align="center">
+
+![BSAD Summary Dashboard](outputs/eda_case_study/05_summary_dashboard.png)
+*Complete overview: The problem, solution, and results*
+
+</div>
+
 ---
 
 ## 🔐 Security Problem Addressed
@@ -54,6 +61,13 @@ Example:
 - HTTP session generating **50 packets** → ✅ **Normal** (HTTP typically 100+ packets)
 
 **The same count means different things in different contexts.**
+
+<div align="center">
+
+![What BSAD Solves](outputs/eda_case_study/01_what_bsad_solves.png)
+*Understanding what BSAD detects: count spikes, overdispersion, and entity-specific baselines*
+
+</div>
 
 ---
 
@@ -294,6 +308,13 @@ Classical Wins:
   ✓ Prototyping/exploration
 ```
 
+<div align="center">
+
+![Head-to-Head Comparison](outputs/comparison/head_to_head_comparison.png)
+*BSAD dominates in its domain (Scenario A), classical methods win elsewhere (Scenario B)*
+
+</div>
+
 ---
 
 ## 📊 Case Study: UNSW-NB15
@@ -324,6 +345,13 @@ Original (64% attacks)  →  Rare-Attack Regime
 Keep ALL normals        ├─ 2% attacks (1,897 samples)
 Subsample attacks   →   └─ 5% attacks (4,894 samples)
 ```
+
+<div align="center">
+
+![Regime Transformation](outputs/unsw/regime_transformation.png)
+*From classification (68% attacks) to true anomaly detection (1-5% attacks)*
+
+</div>
 
 **Files Created:**
 - `data/unsw_nb15_rare_attack_1pct.parquet`
@@ -379,11 +407,34 @@ BSAD (Bayesian)    0.005  (outside its domain)
 
 **BSAD is a specialist that dominates in its domain.**
 
+### BSAD Unique Capabilities
+
+<div align="center">
+
+![Uncertainty Quantification](outputs/comparison/uncertainty_quantification.png)
+*BSAD provides confidence intervals, not just point estimates*
+
+</div>
+
+<div align="center">
+
+![Entity-Specific Baselines](outputs/comparison/entity_baselines.png)
+*Each entity learns its own baseline rate with uncertainty bounds*
+
+</div>
+
 ---
 
 ## 🔬 How BSAD Works
 
 ### The Model
+
+<div align="center">
+
+![Hierarchical Model Diagram](docs/images/hierarchical_model_diagram.png)
+*Three-level hierarchical structure: Population → Entity → Observation*
+
+</div>
 
 ```
 Hierarchical Negative Binomial Model
@@ -415,6 +466,13 @@ For each observation:
 4. Score: -log(P) → Higher = more anomalous
 ```
 
+<div align="center">
+
+![Scoring Explanation](docs/images/scoring_explanation.png)
+*How anomaly scores are computed: from distribution to ranked output with uncertainty*
+
+</div>
+
 ### Why It Works
 
 | Feature | Benefit |
@@ -423,6 +481,20 @@ For each observation:
 | **Hierarchical pooling** | Sparse entities regularized |
 | **Negative Binomial** | Handles overdispersion (Var >> Mean) |
 | **Full posterior** | Uncertainty quantification |
+
+<div align="center">
+
+![Partial Pooling Explained](docs/images/partial_pooling_explained.png)
+*Partial pooling: sparse entities shrink to population mean, dense entities keep their own rate*
+
+</div>
+
+<div align="center">
+
+![Overdispersion Analysis](outputs/unsw/overdispersion_analysis.png)
+*Security data shows overdispersion: Variance >> Mean (all points above the Poisson line)*
+
+</div>
 
 ---
 
@@ -496,6 +568,13 @@ This project demonstrates skills and approaches relevant for:
 ---
 
 ## 📁 Project Structure
+
+<div align="center">
+
+![Pipeline Architecture](docs/images/pipeline_architecture.png)
+*End-to-end pipeline: from raw data to ranked anomalies with uncertainty*
+
+</div>
 
 ```
 bayesian-security-anomaly-detection/

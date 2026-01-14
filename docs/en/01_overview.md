@@ -74,6 +74,9 @@ This distinction matters operationally:
 
 Security data is inherently sparse—many entities have limited history. Bayesian hierarchical models handle this through **partial pooling**:
 
+![Partial Pooling Explained](../images/partial_pooling_explained.png)
+*Partial pooling: sparse entities shrink to population mean, dense entities keep their own rate*
+
 - Entities with **abundant data**: Estimates driven by their own observations
 - Entities with **sparse data**: Estimates "shrink" toward population average
 
@@ -120,6 +123,9 @@ Where:
 ## System Architecture
 
 ### High-Level Pipeline
+
+![Pipeline Architecture](../images/pipeline_architecture.png)
+*End-to-end pipeline: from raw data to ranked anomalies with uncertainty*
 
 ```
 ┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐

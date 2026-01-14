@@ -28,6 +28,13 @@ Este proyecto explora cómo los **modelos Bayesianos jerárquicos** pueden usars
 
 **Resultado Clave**: +30 puntos PR-AUC sobre métodos clásicos cuando se aplica a datos de conteo con estructura de entidad en eventos raros.
 
+<div align="center">
+
+![BSAD Dashboard Resumen](outputs/eda_case_study/05_summary_dashboard.png)
+*Vista completa: El problema, la solución y los resultados*
+
+</div>
+
 ---
 
 ## 🔐 Problema de Seguridad Abordado
@@ -54,6 +61,13 @@ Ejemplo:
 - Sesión HTTP generando **50 paquetes** → ✅ **Normal** (HTTP típicamente 100+ paquetes)
 
 **El mismo conteo significa cosas diferentes en diferentes contextos.**
+
+<div align="center">
+
+![Qué Resuelve BSAD](outputs/eda_case_study/01_what_bsad_solves.png)
+*Entendiendo qué detecta BSAD: picos de conteo, sobredispersión y líneas base por entidad*
+
+</div>
 
 ---
 
@@ -295,6 +309,13 @@ Clásicos Ganan:
   ✓ Prototipado/exploración
 ```
 
+<div align="center">
+
+![Comparación Directa](outputs/comparison/head_to_head_comparison.png)
+*BSAD domina en su dominio (Escenario A), métodos clásicos ganan en otro lugar (Escenario B)*
+
+</div>
+
 ---
 
 ## 📊 Caso de Estudio: UNSW-NB15
@@ -326,6 +347,13 @@ Mantener TODOS         ├─ 2% ataques (1,897 muestras)
 los normales     →     └─ 5% ataques (4,894 muestras)
 Submuestrear ataques
 ```
+
+<div align="center">
+
+![Transformación del Régimen](outputs/unsw/regime_transformation.png)
+*De clasificación (68% ataques) a verdadera detección de anomalías (1-5% ataques)*
+
+</div>
 
 **Archivos Creados:**
 - `data/unsw_nb15_rare_attack_1pct.parquet`
@@ -381,11 +409,34 @@ BSAD (Bayesiano)   0.005  (fuera de su dominio)
 
 **BSAD es un especialista que domina en su dominio.**
 
+### Capacidades Únicas de BSAD
+
+<div align="center">
+
+![Cuantificación de Incertidumbre](outputs/comparison/uncertainty_quantification.png)
+*BSAD proporciona intervalos de confianza, no solo estimaciones puntuales*
+
+</div>
+
+<div align="center">
+
+![Líneas Base por Entidad](outputs/comparison/entity_baselines.png)
+*Cada entidad aprende su propia tasa base con límites de incertidumbre*
+
+</div>
+
 ---
 
 ## 🔬 Cómo Funciona BSAD
 
 ### El Modelo: Binomial Negativo Jerárquico
+
+<div align="center">
+
+![Diagrama del Modelo Jerárquico](docs/images/hierarchical_model_diagram.png)
+*Estructura jerárquica de tres niveles: Población → Entidad → Observación*
+
+</div>
 
 ```
 Nivel Poblacional:
@@ -421,6 +472,13 @@ credible_interval = [percentil_5, percentil_95]
 
 Los métodos clásicos dan una puntuación. BSAD da una **distribución completa**.
 
+<div align="center">
+
+![Explicación del Scoring](docs/images/scoring_explanation.png)
+*Cómo se calculan las puntuaciones de anomalía: de distribución a salida rankeada con incertidumbre*
+
+</div>
+
 #### 3. Pooling Parcial (Compartir Información Inteligente)
 
 ```
@@ -429,6 +487,20 @@ Entidad con muchos datos →  Sigue su propio patrón
 ```
 
 Esto previene sobreajuste en entidades con datos escasos.
+
+<div align="center">
+
+![Pooling Parcial Explicado](docs/images/partial_pooling_explained.png)
+*Pooling parcial: entidades escasas se contraen hacia la media poblacional, entidades densas mantienen su propia tasa*
+
+</div>
+
+<div align="center">
+
+![Análisis de Sobredispersión](outputs/unsw/overdispersion_analysis.png)
+*Los datos de seguridad muestran sobredispersión: Varianza >> Media (todos los puntos sobre la línea Poisson)*
+
+</div>
 
 ---
 
@@ -502,6 +574,13 @@ Este proyecto demuestra habilidades y enfoques relevantes para:
 ---
 
 ## 📁 Estructura del Proyecto
+
+<div align="center">
+
+![Arquitectura del Pipeline](docs/images/pipeline_architecture.png)
+*Pipeline completo: desde datos crudos hasta anomalías rankeadas con incertidumbre*
+
+</div>
 
 ```
 bayesian-security-anomaly-detection/

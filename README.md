@@ -9,11 +9,12 @@
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![UNSW-NB15](https://img.shields.io/badge/dataset-UNSW--NB15-purple.svg)](https://research.unsw.edu.au/projects/unsw-nb15-dataset)
 
-[Start Here 🗺️](#-project-overview--navigation) •
-[The Problem](#-the-problem) •
-[When to Use](#-when-to-use-bsad) •
-[Results](#-results) •
-[Quick Start](#-quick-start)
+[🔐 Security Problem](#-security-problem-addressed) •
+[📚 Navigation](#-project-overview--navigation) •
+[✅ When to Use](#-when-to-use-bsad) •
+[❌ When NOT](#-when-not-to-use-bsad) •
+[🧠 SOC Use Case](#-operational-use-case-soc-environment) •
+[🚀 Quick Start](#-quick-start)
 
 [**🇪🇸 Versión en Español**](README_ES.md)
 
@@ -21,9 +22,38 @@
 
 ---
 
-## 🎯 One-Line Summary
+## 🎯 The 30-Second Pitch
 
-**BSAD detects rare COUNT ANOMALIES per ENTITY with uncertainty quantification—achieving +30 PR-AUC points over classical methods in its domain.**
+This project explores how **hierarchical Bayesian models** can be used for **behavioral anomaly detection** in network traffic. Instead of classifying attacks, it models what is **normal for each type of network activity** and flags **statistically improbable behavior** under rare-event regimes—particularly useful for detecting **low-and-slow threats** that evade traditional detectors.
+
+**Key Result**: +30 PR-AUC points over classical methods when applied to count-based, entity-structured rare-event data.
+
+---
+
+## 🔐 Security Problem Addressed
+
+### What Threats Does This Detect?
+
+This project focuses on **behavioral anomaly detection** in network environments, targeting threats that evade signature-based systems:
+
+| Threat Type | Why Traditional Systems Miss It | Why BSAD Catches It |
+|-------------|----------------------------------|---------------------|
+| **Low-and-Slow Beaconing** | Spread over time, no single spike | Entity-specific baselines detect subtle deviations |
+| **Insider Misuse** | Authorized access, normal protocols | Count patterns reveal unusual behavior for that user/service |
+| **Long-term Reconnaissance** | APT-style gradual scanning | Rare-event regime optimized for <5% attack rates |
+| **Zero-Day Exploits** | No known signatures | Behavioral deviation from established baselines |
+| **Data Exfiltration** | Looks like normal traffic | Unusual packet/byte counts for specific protocol_service |
+
+### The Core Security Insight
+
+**Traditional signature-based detection**: "Does this match a known attack pattern?"
+**BSAD approach**: "Is this behavior statistically improbable for this entity?"
+
+Example:
+- DNS query generating **50 packets** → 🚨 **Highly anomalous** (DNS normally 2-3 packets)
+- HTTP session generating **50 packets** → ✅ **Normal** (HTTP typically 100+ packets)
+
+**The same count means different things in different contexts.**
 
 ---
 
@@ -151,6 +181,118 @@ Use BSAD when **ALL** of these apply:
 | **Network** | Source IP | Connections/window | Port scanning |
 | **IoT** | Device ID | Messages/interval | Botnet C&C |
 | **Cloud Costs** | Service | Hourly spend | Resource abuse |
+
+---
+
+## ❌ When NOT to Use BSAD
+
+### This Approach is NOT Intended For
+
+Be honest about limitations. BSAD is a specialist tool—use classical methods when:
+
+| Problem Type | Why BSAD Fails | Use Instead |
+|--------------|----------------|-------------|
+| **Malware Classification** | Not designed for binary/multi-class classification | Random Forest, XGBoost, Deep Learning |
+| **Signature-Based Detection** | No signature matching capability | YARA, Snort, Suricata |
+| **Multivariate Feature Anomalies** | Designed for COUNT data, not feature vectors | Isolation Forest, One-Class SVM |
+| **High Attack Rates (>10%)** | Rare-event assumptions break down | This becomes classification—use supervised learning |
+| **Real-Time Detection (<100ms)** | MCMC inference is computationally intensive | Rule-based systems, pre-trained models |
+| **No Entity Structure** | Requires grouping variable (users, IPs, services) | Global anomaly detection (LOF, Isolation Forest) |
+
+### Example: See Notebook 03
+
+**Scenario B** in [`03_model_comparison.ipynb`](notebooks/03_model_comparison.ipynb) explicitly demonstrates when BSAD performs **worse** than classical methods (multivariate features: PR-AUC 0.005 vs 0.052).
+
+**This honesty is a feature, not a bug.** Professional data scientists know when their tools don't apply.
+
+---
+
+## 🧠 Operational Use Case: SOC Environment
+
+### How This Would Work in Production
+
+In a Security Operations Center (SOC), BSAD would be used as part of a **behavioral analytics layer**:
+
+```
+┌─────────────────────────────────────────────────────────┐
+│  TRADITIONAL TIER (Signature-Based)                    │
+│  ├─ Known malware signatures                           │
+│  ├─ CVE-based exploit detection                        │
+│  └─ Rule-based alerts                                  │
+└─────────────────────────────────────────────────────────┘
+                         ↓
+┌─────────────────────────────────────────────────────────┐
+│  BEHAVIORAL TIER (BSAD)                                 │
+│  ├─ Establish per-service/protocol baselines           │
+│  ├─ Score deviations with uncertainty quantification   │
+│  ├─ Prioritize under rare-event regimes                │
+│  └─ Reduce false positives from static thresholds      │
+└─────────────────────────────────────────────────────────┘
+                         ↓
+┌─────────────────────────────────────────────────────────┐
+│  ANALYST WORKFLOW                                       │
+│  ├─ High-confidence anomalies (narrow credible interval)│
+│  ├─ Context-aware: "unusual FOR this service"          │
+│  └─ Reduced alert fatigue vs global thresholds         │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Operational Benefits
+
+| Challenge | Traditional Approach | BSAD Approach |
+|-----------|---------------------|---------------|
+| **Alert Fatigue** | Global thresholds generate many false positives | Entity-specific baselines reduce noise |
+| **Prioritization** | All anomalies treated equally | Uncertainty-aware risk scores |
+| **Context Loss** | "100 packets is anomalous" (for what?) | "100 packets is anomalous for DNS" |
+| **Rare Events** | Static thresholds miss subtle deviations | Optimized for <5% attack rates |
+| **New Services** | No baseline until enough data | Partial pooling borrows strength from similar entities |
+
+### Example Alert
+
+```
+🚨 High-Confidence Anomaly Detected
+
+Entity: udp_dns (DNS traffic)
+Observed Count: 47 packets in window
+Expected: 2.3 packets (90% CI: [1.8, 2.9])
+Anomaly Score: 28.4 (top 0.1%)
+Confidence: High (narrow interval)
+
+Recommendation: Investigate potential DNS tunneling or exfiltration
+```
+
+---
+
+## 📈 Impact: BSAD vs Classical Methods
+
+### Beyond PR-AUC: Strategic Comparison
+
+| Aspect | Classical Methods (IF, OCSVM, LOF) | BSAD (Hierarchical Bayesian) |
+|--------|-----------------------------------|------------------------------|
+| **Rare-Event Detection** | Unstable with <5% attack rates | ✅ Designed for rare events |
+| **Interpretability** | Black-box decision boundaries | ✅ Probabilistic, entity-specific baselines |
+| **Uncertainty Awareness** | Point estimates only | ✅ Full posterior distributions |
+| **Entity-Level Context** | Global anomaly detection | ✅ "Normal for user A ≠ normal for user B" |
+| **SOC Prioritization** | Difficult (all scores equal weight) | ✅ Confidence intervals guide triage |
+| **Training Speed** | ✅ Fast (minutes) | Slow (hours with MCMC) |
+| **Inference Speed** | ✅ Real-time capable | Slow (not for <100ms requirements) |
+| **Data Requirements** | Moderate | High (needs count data + entity structure) |
+
+### When Each Wins
+
+```
+BSAD Wins:
+  ✓ Count data + entity structure
+  ✓ Rare anomalies (<5%)
+  ✓ Need uncertainty quantification
+  ✓ Operational context matters
+
+Classical Wins:
+  ✓ Multivariate continuous features
+  ✓ No entity structure
+  ✓ Speed critical (real-time)
+  ✓ Prototyping/exploration
+```
 
 ---
 
@@ -328,6 +470,28 @@ pipeline.run_all()
 - 📊 `outputs/eda_case_study/` - 5 comprehensive EDA visualizations
 - 📈 `outputs/rare_attack_comparison/` - Model comparison charts
 - 🎯 All results demonstrate: **BSAD is a specialist, not a generalist**
+
+---
+
+## 👨‍💻 Relevant Professional Roles
+
+This project demonstrates skills and approaches relevant for:
+
+| Role | How This Project Applies |
+|------|--------------------------|
+| **Security Data Scientist** | Behavioral analytics, rare-event modeling, uncertainty quantification for threat detection |
+| **Detection Engineer (Behavioral Analytics)** | Entity-specific baselines, anomaly scoring under rare-event regimes, SOC integration |
+| **NDR / SOC Analytics Engineer** | Network behavior modeling, alert prioritization, context-aware detection |
+| **Applied Bayesian ML Engineer** | Hierarchical modeling, MCMC implementation, posterior predictive scoring |
+| **Threat Detection Researcher** | Novel detection methodologies, evaluation under realistic attack rates, honest method comparison |
+
+### Skills Demonstrated
+
+- ✅ **Domain Expertise**: Network security, intrusion detection, threat intelligence
+- ✅ **Statistical Rigor**: Bayesian inference, MCMC, hierarchical models, model diagnostics
+- ✅ **Engineering Pragmatism**: When to use vs when NOT to use specialized methods
+- ✅ **Operational Thinking**: SOC workflows, alert fatigue, prioritization strategies
+- ✅ **Research Quality**: Honest evaluation, two-scenario comparison, documented limitations
 
 ---
 

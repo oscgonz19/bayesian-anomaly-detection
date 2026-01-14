@@ -9,11 +9,12 @@
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![UNSW-NB15](https://img.shields.io/badge/dataset-UNSW--NB15-purple.svg)](https://research.unsw.edu.au/projects/unsw-nb15-dataset)
 
-[Comenzar Aquí 🗺️](#-resumen-del-proyecto--navegación) •
-[El Problema](#-el-problema) •
-[Cuándo Usar](#-cuándo-usar-bsad) •
-[Resultados](#-resultados) •
-[Inicio Rápido](#-inicio-rápido)
+[🔐 Problema de Seguridad](#-problema-de-seguridad-abordado) •
+[📚 Navegación](#-resumen-del-proyecto--navegación) •
+[✅ Cuándo Usar](#-cuándo-usar-bsad) •
+[❌ Cuándo NO](#-cuándo-no-usar-bsad) •
+[🧠 Caso de Uso SOC](#-caso-de-uso-operacional-entorno-soc) •
+[🚀 Inicio Rápido](#-inicio-rápido)
 
 [**🇬🇧 English Version**](README.md)
 
@@ -21,9 +22,38 @@
 
 ---
 
-## 🎯 Resumen en Una Línea
+## 🎯 El Pitch de 30 Segundos
 
-**BSAD detecta ANOMALÍAS de CONTEO raras por ENTIDAD con cuantificación de incertidumbre—logrando +30 puntos PR-AUC sobre métodos clásicos en su dominio.**
+Este proyecto explora cómo los **modelos Bayesianos jerárquicos** pueden usarse para **detección de anomalías comportamentales** en tráfico de red. En lugar de clasificar ataques, modela lo que es **normal para cada tipo de actividad de red** y señala **comportamiento estadísticamente improbable** bajo regímenes de eventos raros—particularmente útil para detectar **amenazas lentas y sigilosas** que evaden detectores tradicionales.
+
+**Resultado Clave**: +30 puntos PR-AUC sobre métodos clásicos cuando se aplica a datos de conteo con estructura de entidad en eventos raros.
+
+---
+
+## 🔐 Problema de Seguridad Abordado
+
+### ¿Qué Amenazas Detecta Esto?
+
+Este proyecto se enfoca en **detección de anomalías comportamentales** en entornos de red, atacando amenazas que evaden sistemas basados en firmas:
+
+| Tipo de Amenaza | Por Qué los Sistemas Tradicionales Fallan | Por Qué BSAD la Detecta |
+|-----------------|-------------------------------------------|-------------------------|
+| **Beaconing Lento y Sigiloso** | Distribuido en el tiempo, sin pico único | Líneas base por entidad detectan desviaciones sutiles |
+| **Uso Indebido de Internos** | Acceso autorizado, protocolos normales | Patrones de conteo revelan comportamiento inusual para ese usuario/servicio |
+| **Reconocimiento de Largo Plazo** | Escaneo gradual estilo APT | Régimen de eventos raros optimizado para tasas de ataque <5% |
+| **Exploits de Día Cero** | Sin firmas conocidas | Desviación comportamental de líneas base establecidas |
+| **Exfiltración de Datos** | Parece tráfico normal | Conteos inusuales de paquetes/bytes para protocolo_servicio específico |
+
+### La Intuición Central de Seguridad
+
+**Detección basada en firmas tradicional**: "¿Esto coincide con un patrón de ataque conocido?"
+**Enfoque BSAD**: "¿Es este comportamiento estadísticamente improbable para esta entidad?"
+
+Ejemplo:
+- Consulta DNS generando **50 paquetes** → 🚨 **Altamente anómalo** (DNS normalmente 2-3 paquetes)
+- Sesión HTTP generando **50 paquetes** → ✅ **Normal** (HTTP típicamente 100+ paquetes)
+
+**El mismo conteo significa cosas diferentes en diferentes contextos.**
 
 ---
 
@@ -152,6 +182,118 @@ Usa BSAD cuando se cumplan **TODOS** estos criterios:
 | Red | IP origen | Conexiones/ventana | ✓ |
 | IoT | ID de Dispositivo | Mensajes/intervalo | ✓ |
 | Costos Cloud | Servicio | Gasto por hora | ✓ |
+
+---
+
+## ❌ Cuándo NO Usar BSAD
+
+### Este Enfoque NO está Diseñado Para
+
+Sé honesto sobre las limitaciones. BSAD es una herramienta especializada—usa métodos clásicos cuando:
+
+| Tipo de Problema | Por Qué BSAD Falla | Usa en su Lugar |
+|------------------|--------------------|--------------------|
+| **Clasificación de Malware** | No diseñado para clasificación binaria/multi-clase | Random Forest, XGBoost, Deep Learning |
+| **Detección Basada en Firmas** | Sin capacidad de coincidencia de firmas | YARA, Snort, Suricata |
+| **Anomalías de Features Multivariadas** | Diseñado para datos de CONTEO, no vectores de features | Isolation Forest, One-Class SVM |
+| **Tasas Altas de Ataque (>10%)** | Supuestos de eventos raros se rompen | Esto es clasificación—usa aprendizaje supervisado |
+| **Detección en Tiempo Real (<100ms)** | La inferencia MCMC es computacionalmente intensiva | Sistemas basados en reglas, modelos pre-entrenados |
+| **Sin Estructura de Entidad** | Requiere variable de agrupación (usuarios, IPs, servicios) | Detección global de anomalías (LOF, Isolation Forest) |
+
+### Ejemplo: Ver Notebook 03
+
+**Escenario B** en [`03_model_comparison.ipynb`](notebooks/03_model_comparison.ipynb) demuestra explícitamente cuándo BSAD tiene **peor** rendimiento que métodos clásicos (features multivariadas: PR-AUC 0.005 vs 0.052).
+
+**Esta honestidad es una característica, no un error.** Los científicos de datos profesionales saben cuándo sus herramientas no aplican.
+
+---
+
+## 🧠 Caso de Uso Operacional: Entorno SOC
+
+### Cómo Funcionaría en Producción
+
+En un Centro de Operaciones de Seguridad (SOC), BSAD se usaría como parte de una **capa de análisis comportamental**:
+
+```
+┌─────────────────────────────────────────────────────────┐
+│  NIVEL TRADICIONAL (Basado en Firmas)                  │
+│  ├─ Firmas de malware conocido                         │
+│  ├─ Detección de exploits basada en CVE                │
+│  └─ Alertas basadas en reglas                          │
+└─────────────────────────────────────────────────────────┘
+                         ↓
+┌─────────────────────────────────────────────────────────┐
+│  NIVEL COMPORTAMENTAL (BSAD)                            │
+│  ├─ Establecer líneas base por servicio/protocolo      │
+│  ├─ Puntuar desviaciones con cuantificación incertidumbre│
+│  ├─ Priorizar bajo regímenes de eventos raros          │
+│  └─ Reducir falsos positivos de umbrales estáticos     │
+└─────────────────────────────────────────────────────────┘
+                         ↓
+┌─────────────────────────────────────────────────────────┐
+│  FLUJO DE TRABAJO DEL ANALISTA                          │
+│  ├─ Anomalías de alta confianza (intervalo estrecho)   │
+│  ├─ Consciente del contexto: "inusual PARA este servicio"│
+│  └─ Fatiga de alertas reducida vs umbrales globales    │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Beneficios Operacionales
+
+| Desafío | Enfoque Tradicional | Enfoque BSAD |
+|---------|---------------------|--------------|
+| **Fatiga de Alertas** | Umbrales globales generan muchos falsos positivos | Líneas base por entidad reducen ruido |
+| **Priorización** | Todas las anomalías tratadas igual | Puntuaciones de riesgo conscientes de incertidumbre |
+| **Pérdida de Contexto** | "100 paquetes es anómalo" (¿para qué?) | "100 paquetes es anómalo para DNS" |
+| **Eventos Raros** | Umbrales estáticos pierden desviaciones sutiles | Optimizado para tasas de ataque <5% |
+| **Servicios Nuevos** | Sin línea base hasta tener suficientes datos | Pooling parcial toma prestada fuerza de entidades similares |
+
+### Ejemplo de Alerta
+
+```
+🚨 Anomalía de Alta Confianza Detectada
+
+Entidad: udp_dns (tráfico DNS)
+Conteo Observado: 47 paquetes en ventana
+Esperado: 2.3 paquetes (IC 90%: [1.8, 2.9])
+Puntuación de Anomalía: 28.4 (top 0.1%)
+Confianza: Alta (intervalo estrecho)
+
+Recomendación: Investigar posible tunneling DNS o exfiltración
+```
+
+---
+
+## 📈 Impacto: BSAD vs Métodos Clásicos
+
+### Más Allá de PR-AUC: Comparación Estratégica
+
+| Aspecto | Métodos Clásicos (IF, OCSVM, LOF) | BSAD (Bayesiano Jerárquico) |
+|---------|-----------------------------------|------------------------------|
+| **Detección de Eventos Raros** | Inestable con tasas de ataque <5% | ✅ Diseñado para eventos raros |
+| **Interpretabilidad** | Límites de decisión de caja negra | ✅ Probabilístico, líneas base por entidad |
+| **Conciencia de Incertidumbre** | Solo estimaciones puntuales | ✅ Distribuciones posteriores completas |
+| **Contexto a Nivel de Entidad** | Detección global de anomalías | ✅ "Normal para usuario A ≠ normal para usuario B" |
+| **Priorización SOC** | Difícil (todos los puntajes igual peso) | ✅ Intervalos de confianza guían triaje |
+| **Velocidad de Entrenamiento** | ✅ Rápido (minutos) | Lento (horas con MCMC) |
+| **Velocidad de Inferencia** | ✅ Capaz de tiempo real | Lento (no para requisitos <100ms) |
+| **Requisitos de Datos** | Moderados | Altos (necesita datos de conteo + estructura de entidad) |
+
+### Cuándo Gana Cada Uno
+
+```
+BSAD Gana:
+  ✓ Datos de conteo + estructura de entidad
+  ✓ Anomalías raras (<5%)
+  ✓ Necesitas cuantificación de incertidumbre
+  ✓ El contexto operacional importa
+
+Clásicos Ganan:
+  ✓ Features multivariadas continuas
+  ✓ Sin estructura de entidad
+  ✓ Velocidad crítica (tiempo real)
+  ✓ Prototipado/exploración
+```
 
 ---
 
@@ -334,6 +476,28 @@ pipeline.run_all()
 - 📊 `outputs/eda_case_study/` - 5 visualizaciones EDA comprensivas
 - 📈 `outputs/rare_attack_comparison/` - Gráficos de comparación de modelos
 - 🎯 Todos los resultados demuestran: **BSAD es un especialista, no un generalista**
+
+---
+
+## 👨‍💻 Roles Profesionales Relevantes
+
+Este proyecto demuestra habilidades y enfoques relevantes para:
+
+| Rol | Cómo Aplica Este Proyecto |
+|-----|---------------------------|
+| **Científico de Datos de Seguridad** | Análisis comportamental, modelado de eventos raros, cuantificación de incertidumbre para detección de amenazas |
+| **Ingeniero de Detección (Análisis Comportamental)** | Líneas base por entidad, puntuación de anomalías bajo regímenes de eventos raros, integración SOC |
+| **Ingeniero de Análisis NDR / SOC** | Modelado de comportamiento de red, priorización de alertas, detección consciente del contexto |
+| **Ingeniero de ML Bayesiano Aplicado** | Modelado jerárquico, implementación MCMC, puntuación predictiva posterior |
+| **Investigador de Detección de Amenazas** | Metodologías de detección novedosas, evaluación bajo tasas de ataque realistas, comparación honesta de métodos |
+
+### Habilidades Demostradas
+
+- ✅ **Experiencia de Dominio**: Seguridad de redes, detección de intrusiones, inteligencia de amenazas
+- ✅ **Rigor Estadístico**: Inferencia Bayesiana, MCMC, modelos jerárquicos, diagnósticos de modelo
+- ✅ **Pragmatismo de Ingeniería**: Cuándo usar vs cuándo NO usar métodos especializados
+- ✅ **Pensamiento Operacional**: Flujos de trabajo SOC, fatiga de alertas, estrategias de priorización
+- ✅ **Calidad de Investigación**: Evaluación honesta, comparación de dos escenarios, limitaciones documentadas
 
 ---
 

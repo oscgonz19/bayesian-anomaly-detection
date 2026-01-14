@@ -409,6 +409,35 @@ BSAD (Bayesiano)   0.005  (fuera de su dominio)
 
 **BSAD es un especialista que domina en su dominio.**
 
+### ⚠️ Una Nota sobre Métricas (Evaluación Honesta)
+
+**PR-AUC no es la mejor métrica para este caso de uso.** En entornos SOC reales, lo que importa es:
+
+| Métrica | Por Qué Importa | Qué Mide |
+|---------|-----------------|----------|
+| **FPR @ Recall Fijo** | Carga de trabajo del analista | Falsas alarmas por turno |
+| **Alertas Esperadas/Día** | Carga operacional | ¿Es esto manejable? |
+| **FP por TP** | Ratio de carga del analista | ¿Cuánto ruido por señal? |
+| **Calidad de Incertidumbre** | Confianza en predicciones | ¿Podemos confiar en scores altos? |
+
+**La narrativa honesta:**
+
+```
+❌ NO digas: "BSAD tiene mejor PR-AUC"
+   (Esto depende mucho del escenario específico)
+
+✅ SÍ di: "BSAD proporciona líneas base por entidad y
+   cuantificación de incertidumbre para detección de
+   anomalías basada en conteos sin requerir datos
+   etiquetados de ataques"
+```
+
+**Las verdaderas ventajas de BSAD no se capturan con PR-AUC:**
+1. **No requiere datos etiquetados** (enfoque no supervisado)
+2. **Líneas base específicas por entidad** (reduce falsos positivos de usuarios frecuentes)
+3. **Cuantificación de incertidumbre** (saber cuándo confiar en el score)
+4. **Scores interpretables** (basados en desviación estadística)
+
 ### Capacidades Únicas de BSAD
 
 <div align="center">

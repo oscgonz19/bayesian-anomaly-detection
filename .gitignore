@@ -59,3 +59,4 @@ data/*.csv
 .coverage
 htmlcov/
 .tox/
+*:Zone.Identifier

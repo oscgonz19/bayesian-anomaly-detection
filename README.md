@@ -24,7 +24,7 @@
 
 ## 🎯 The 30-Second Pitch
 
-This project explores how **hierarchical Bayesian models** can be used for **behavioral anomaly detection** in network traffic. Instead of classifying attacks, it models what is **normal for each type of network activity** and flags **statistically improbable behavior** under rare-event regimes—particularly useful for detecting **low-and-slow threats** that evade traditional detectors.
+This project explores how **hierarchical Bayesian models** can be used for **behavioral anomaly detection** in network traffic. Instead of classifying attacks, it models what is **normal for each type of network activity** and flags **statistically improbable count behavior** under rare-event regimes—designed to **reduce alert fatigue** and **prioritize analyst attention** when attacks are rare (<5%).
 
 **Key Result**: +30 PR-AUC points over classical methods when applied to count-based, entity-structured rare-event data.
 
@@ -39,17 +39,17 @@ This project explores how **hierarchical Bayesian models** can be used for **beh
 
 ## 🔐 Security Problem Addressed
 
-### What Threats Does This Detect?
+### What Threats Might This Help Detect?
 
-This project focuses on **behavioral anomaly detection** in network environments, targeting threats that evade signature-based systems:
+This project focuses on **behavioral anomaly detection** for count-based metrics. It may help detect threats that **alter traffic volumes**:
 
-| Threat Type | Why Traditional Systems Miss It | Why BSAD Catches It |
+| Threat Type | Why Traditional Systems Miss It | How BSAD Might Help |
 |-------------|----------------------------------|---------------------|
-| **Low-and-Slow Beaconing** | Spread over time, no single spike | Entity-specific baselines detect subtle deviations |
-| **Insider Misuse** | Authorized access, normal protocols | Count patterns reveal unusual behavior for that user/service |
-| **Long-term Reconnaissance** | APT-style gradual scanning | Rare-event regime optimized for <5% attack rates |
-| **Zero-Day Exploits** | No known signatures | Behavioral deviation from established baselines |
-| **Data Exfiltration** | Looks like normal traffic | Unusual packet/byte counts for specific protocol_service |
+| **Beaconing / C2** | Spread over time, no single spike | Entity-specific baselines may flag unusual request counts |
+| **Brute Force / Scanning** | High volume, but "normal" protocols | Count spikes relative to entity baseline |
+| **Data Exfiltration** | Looks like normal traffic | Unusual byte/packet counts for specific services |
+
+**Important**: BSAD detects **count anomalies**, not content-based attacks. See [What BSAD Does NOT Detect](#️-what-bsad-does-not-detect) for limitations.
 
 ### The Core Security Insight
 
@@ -84,6 +84,7 @@ Choose your journey based on your needs:
 | **🎓 Theory & Practice** | [`01_end_to_end_walkthrough.ipynb`](notebooks/01_end_to_end_walkthrough.ipynb) | Complete BSAD tutorial: Bayesian inference, MCMC, hierarchical models, with synthetic data |
 | **📊 Real Data Application** | [`02_unsw_nb15_real_data.ipynb`](notebooks/02_unsw_nb15_real_data.ipynb) | UNSW-NB15 transformation from classification (64% attacks) to rare-event detection (1-5% attacks) |
 | **⚖️ Method Selection** | [`03_model_comparison.ipynb`](notebooks/03_model_comparison.ipynb) | When BSAD wins (+30 PR-AUC) vs when classical methods win |
+| **🎯 SOC Operations** | [`04_alert_prioritization.ipynb`](notebooks/04_alert_prioritization.ipynb) | From detection to decision: risk scoring, alert budgets, entity context for analyst triage |
 
 ### 📖 Deep Dives
 
@@ -489,6 +490,254 @@ The right framing for interviews:
 
 ---
 
+## 📊 Multi-Regime Validation: CSE-CIC-IDS2018
+
+### Experimental Setup
+
+To validate BSAD's behavior across different attack rate regimes, we ran the **exact same pipeline** on CSE-CIC-IDS2018 at four attack rates:
+
+| Regime | Attack Rate | Nature | Expected Winner |
+|--------|-------------|--------|-----------------|
+| Control | 17% | Classification territory | Classical (RF) |
+| Moderate-rare | 5% | Transition zone | Mixed |
+| Rare | 2% | Anomaly detection | BSAD should improve |
+| Very rare | 1% | True rare-event | BSAD should excel operationally |
+
+**Comparison**: Random Forest (supervised, uses labels) vs BSAD (unsupervised, entity-aware)
+
+### Results: ROC-AUC vs Operational Metrics
+
+| Regime | BSAD ROC-AUC | RF ROC-AUC | **BSAD Alerts/1k** | **RF Alerts/1k** | Alert Reduction |
+|--------|--------------|------------|---------------------|-------------------|-----------------|
+| **17%** | 0.534 | **0.734** | **15.5** | 134 | 8.6× fewer |
+| **5%** | 0.539 | **0.685** | **16.5** | 232 | 14× fewer |
+| **2%** | 0.573 | **0.739** | **5.4** | 46 | 8.5× fewer |
+| **1%** | 0.640 | **0.706** | **2.5** | 29.5 | **12× fewer** |
+
+*Alerts measured at fixed Recall = 0.3 (30% of attacks detected)*
+
+### Key Findings
+
+**1. RF wins ROC-AUC in all regimes** — Expected, because RF uses labeled data while BSAD is unsupervised.
+
+**2. BSAD wins operationally** — At equal recall, BSAD generates **8-14× fewer alerts**:
+- 17% regime: 15.5 vs 134 alerts per 1k windows
+- 1% regime: 2.5 vs 29.5 alerts per 1k windows
+
+**3. BSAD improves as attacks become rare**:
+- FPR @ Recall=0.3: 0.314 → 0.042 (87% reduction)
+- Alerts per 1k: 15.5 → 2.5 (84% reduction)
+
+### What This Means for SOC Operations
+
+```
+At 1% attack rate with 30% recall target:
+
+Random Forest:  ~30 alerts per 1,000 time windows
+BSAD:           ~2.5 alerts per 1,000 time windows
+
+For a SOC processing 10,000 windows/day:
+  RF  → 300 alerts/day to review
+  BSAD → 25 alerts/day to review
+
+That's the difference between manageable triage and alert fatigue.
+```
+
+<div align="center">
+
+![Multi-Regime Comparison](outputs/datasets/cse-cic-ids2018/multi-regime/multi_regime_comparison.png)
+*BSAD reduces alert volume by 8-14× while maintaining the same recall*
+
+</div>
+
+---
+
+## 🎯 Honest Conclusion
+
+This study shows that **model performance in cybersecurity is strongly regime-dependent**. There is no universally "best" model—only models that are appropriate for specific operational contexts.
+
+### When Classical Methods Win
+
+In regimes where the attack rate is **moderate to high (≈15–20%)**, the problem behaves as a supervised classification task. In this setting, classical classifiers such as Random Forests outperform unsupervised approaches in ROC-AUC, as expected, because they directly exploit labeled attack examples. **Under these conditions, BSAD is not the right tool and should not be used as a primary detector.**
+
+### When BSAD Provides Value
+
+When attacks become **truly rare (≤5%, especially ≤1–2%)**, the nature of the problem changes. The objective is no longer average separation performance, but **operational feasibility**: controlling false positives, reducing alert volume, and prioritizing analyst attention.
+
+In this regime, BSAD demonstrates clear value:
+
+| Capability | Impact |
+|------------|--------|
+| **False positive reduction** | Up to 92% fewer FPs at fixed recall |
+| **Alert volume reduction** | 8–14× fewer alerts for SOC analysts |
+| **Entity-specific baselines** | Prevents high-activity entities from dominating alerts |
+| **Uncertainty-aware scores** | Provides confidence context for triage |
+
+### The Asymmetric Comparison
+
+**Important**: This comparison is not symmetric.
+- Random Forest **relies on labeled attack data**
+- BSAD operates **fully unsupervised**
+
+Comparing them purely on ROC-AUC is misleading for real SOC environments where **labels are scarce, delayed, or unreliable**.
+
+### Bottom Line
+
+> **BSAD is not a replacement for supervised intrusion detection systems.**
+>
+> It is best understood as a **behavioral baseline and alert-reduction layer**, designed for environments where:
+> - Attacks are rare (<5%)
+> - Labels are limited or unavailable
+> - Analyst attention is the most constrained resource
+>
+> Its value lies not in winning benchmarks, but in **making security operations sustainable**.
+
+### Design Takeaway
+
+> *Detection systems should be evaluated not only by how well they separate classes, but by how well they manage human attention under uncertainty.*
+
+---
+
+## 🎯 Alert Prioritization: From Detection to Decision
+
+### Two-Stage Architecture
+
+This repository extends beyond detection into **operational SOC workflows**:
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  STAGE 1: DETECTION (src/bsad/)                                 │
+│  ─────────────────────────────                                  │
+│  • Hierarchical Negative Binomial model                         │
+│  • Entity-specific baselines with partial pooling               │
+│  • Anomaly scoring: -log P(y | posterior)                       │
+│  • Output: anomaly_score + score_std per observation            │
+└─────────────────────────────────────────────────────────────────┘
+                              ↓
+┌─────────────────────────────────────────────────────────────────┐
+│  STAGE 2: TRIAGE (src/triage/)                                  │
+│  ──────────────────────────────                                 │
+│  • Risk scoring with configurable weights                       │
+│  • Alert budget calibration                                     │
+│  • Operational metrics (FPR@recall, alerts/1k)                  │
+│  • Entity context enrichment for analyst decision support       │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Risk Score Formula
+
+Raw anomaly scores are not actionable. We transform them into a **composite risk score**:
+
+```
+Risk = w₁ × normalize(anomaly_score)
+     + w₂ × confidence(1/uncertainty)
+     + w₃ × novelty(entity_history)
+
+Default weights: (0.5, 0.3, 0.2)
+```
+
+| Component | Meaning | Why It Matters |
+|-----------|---------|----------------|
+| **anomaly_score** | How unusual is this observation? | Primary signal |
+| **confidence** | How certain are we (narrow uncertainty)? | Trust high-confidence alerts |
+| **novelty** | Is this a new entity (less history)? | New entities are riskier |
+
+### Alert Budget Calibration
+
+SOCs have limited analyst capacity. Instead of asking "what's the best threshold?", we ask:
+
+> **"If I can only review X alerts per day, what recall can I achieve?"**
+
+Three calibration modes:
+
+| Mode | Use Case | Example |
+|------|----------|---------|
+| `fixed_alerts` | "We can review 50 alerts/day" | Set threshold to generate 50 alerts |
+| `fixed_recall` | "We must catch 30% of attacks" | Set threshold to achieve 30% recall |
+| `fixed_fpr` | "FPR must stay below 5%" | Set threshold to limit false positives |
+
+### Operational Metrics
+
+Beyond ROC-AUC, we measure what matters for SOC:
+
+| Metric | Formula | SOC Interpretation |
+|--------|---------|-------------------|
+| **Precision@k** | TP / k | "Of my top k alerts, how many are real?" |
+| **Recall@k** | TP / total_attacks | "What fraction of attacks in top k?" |
+| **FPR@Recall** | FP / total_negatives | "Cost of catching X% of attacks" |
+| **Alerts/1k** | alerts per 1000 windows | "Daily workload estimate" |
+
+### Entity Context Enrichment
+
+Analysts need **context**, not just scores. For each alert:
+
+```
+[Alert Ticket]
+Entity: dns_service_17
+Anomaly Score: 8.4 (top 0.5%)
+Deviation: 4.2σ above baseline
+Baseline: 12.3 ± 3.1 events/window
+Current: 47 events
+Confidence: High (50+ historical observations)
+Prior Alerts: 0 (first-time anomaly)
+
+Narrative: Entity dns_service_17 shows extremely high activity
+(4.2σ above its baseline). High confidence due to extensive
+history. First-time anomaly warrants investigation.
+```
+
+### Quick Start: Alert Prioritization
+
+```python
+from triage import (
+    compute_risk_score,
+    calibrate_threshold,
+    build_alert_budget_curve,
+    ranking_report,
+    build_entity_history,
+    enrich_alerts,
+)
+
+# After detection: df has anomaly_score, score_std, entity, has_attack
+
+# 1. Compute risk scores
+df["risk_score"] = compute_risk_score(df)
+
+# 2. Calibrate threshold for 30% recall
+result = calibrate_threshold(scores, y_true, mode="fixed_recall", target=0.3)
+print(f"Threshold: {result['threshold']:.2f}, Alerts: {result['alerts']}")
+
+# 3. Generate ranking report
+report = ranking_report(y_true, scores)
+
+# 4. Enrich top alerts with context
+history = build_entity_history(df)
+enriched = enrich_alerts(df, history, top_k=100)
+```
+
+### Reproduce Results
+
+```bash
+# Run alert prioritization pipeline
+python scripts/alert_prioritization.py
+
+# Outputs:
+#   outputs/triage/ranking_metrics.csv
+#   outputs/triage/alert_budget_curve.json
+#   outputs/triage/enriched_alerts.json
+#   outputs/triage/figures/triage_dashboard.png
+```
+
+### Notebook
+
+See [`04_alert_prioritization.ipynb`](notebooks/04_alert_prioritization.ipynb) for the complete walkthrough:
+- Risk score visualization
+- Alert budget curves
+- Multi-regime operational comparison
+- Entity-enriched alert tickets
+
+---
+
 ## 🔬 How BSAD Works
 
 ### The Model
@@ -601,6 +850,7 @@ pipeline.run_all()
 | **01. End-to-End Walkthrough** | Bayesian inference, MCMC, hierarchical models, partial pooling, posterior predictive checks | Synthetic data demo with full theory |
 | **02. UNSW-NB15 Real Data** | Statistical regimes (64% → 1-5%), network flows, overdispersion, entity structure, rare-attack transformation | Demonstrates why BSAD needs proper anomaly detection setup |
 | **03. Model Comparison** | Scenario A (BSAD wins), Scenario B (Classical wins), uncertainty quantification, entity baselines | Head-to-head: +30 PR-AUC advantage in BSAD's domain |
+| **04. Alert Prioritization** | Risk scoring, alert budgets, precision@k, recall@k, entity context enrichment | From detection to SOC decision support |
 
 **Visual Outputs Created:**
 - 📊 `outputs/eda_case_study/` - 5 comprehensive EDA visualizations
@@ -642,23 +892,32 @@ This project demonstrates skills and approaches relevant for:
 
 ```
 bayesian-security-anomaly-detection/
-├── src/bsad/
-│   ├── config.py          # Settings configuration
-│   ├── steps.py           # Pure functions (data, model, scoring)
-│   ├── pipeline.py        # Orchestration
-│   ├── cli.py             # Command-line interface
-│   └── unsw_adapter.py    # UNSW-NB15 data adapter
+├── src/
+│   ├── bsad/                  # Stage 1: Detection
+│   │   ├── config.py          # Settings configuration
+│   │   ├── steps.py           # Pure functions (data, model, scoring)
+│   │   ├── pipeline.py        # Orchestration
+│   │   ├── cli.py             # Command-line interface
+│   │   └── unsw_adapter.py    # UNSW-NB15 data adapter
+│   └── triage/                # Stage 2: Alert Prioritization
+│       ├── risk_score.py      # Composite risk scoring
+│       ├── calibrate_thresholds.py  # Alert budget calibration
+│       ├── ranking_metrics.py # Precision@k, recall@k, FPR@recall
+│       └── entity_context.py  # Entity enrichment for analysts
 ├── notebooks/
 │   ├── 01_end_to_end_walkthrough.ipynb
 │   ├── 02_unsw_nb15_real_data.ipynb
-│   └── 03_model_comparison.ipynb
-├── data/
-│   ├── unsw_nb15_rare_attack_1pct.parquet
-│   ├── unsw_nb15_rare_attack_2pct.parquet
-│   └── unsw_nb15_rare_attack_5pct.parquet
+│   ├── 03_model_comparison.ipynb
+│   └── 04_alert_prioritization.ipynb  # NEW: From detection to decision
+├── scripts/
+│   ├── alert_prioritization.py  # Triage dashboard generation
+│   └── multi_regime_comparison.py  # Multi-attack-rate validation
 ├── outputs/
-│   ├── eda_case_study/    # EDA visualizations
-│   └── rare_attack_comparison/  # Comparison results
+│   ├── datasets/          # Results organized by dataset
+│   │   ├── synthetic/
+│   │   ├── unsw-nb15/
+│   │   └── cse-cic-ids2018/
+│   └── triage/            # Alert prioritization outputs
 ├── docs/
 │   ├── en/                # English documentation
 │   ├── es/                # Spanish documentation

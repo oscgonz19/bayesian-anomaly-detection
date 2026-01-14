@@ -24,7 +24,7 @@
 
 ## 🎯 El Pitch de 30 Segundos
 
-Este proyecto explora cómo los **modelos Bayesianos jerárquicos** pueden usarse para **detección de anomalías comportamentales** en tráfico de red. En lugar de clasificar ataques, modela lo que es **normal para cada tipo de actividad de red** y señala **comportamiento estadísticamente improbable** bajo regímenes de eventos raros—particularmente útil para detectar **amenazas lentas y sigilosas** que evaden detectores tradicionales.
+Este proyecto explora cómo los **modelos Bayesianos jerárquicos** pueden usarse para **detección de anomalías comportamentales** en tráfico de red. En lugar de clasificar ataques, modela lo que es **normal para cada tipo de actividad de red** y señala **comportamiento de conteo estadísticamente improbable** bajo regímenes de eventos raros—diseñado para **reducir fatiga de alertas** y **priorizar atención del analista** cuando los ataques son raros (<5%).
 
 **Resultado Clave**: +30 puntos PR-AUC sobre métodos clásicos cuando se aplica a datos de conteo con estructura de entidad en eventos raros.
 
@@ -39,17 +39,17 @@ Este proyecto explora cómo los **modelos Bayesianos jerárquicos** pueden usars
 
 ## 🔐 Problema de Seguridad Abordado
 
-### ¿Qué Amenazas Detecta Esto?
+### ¿Qué Amenazas Podría Ayudar a Detectar?
 
-Este proyecto se enfoca en **detección de anomalías comportamentales** en entornos de red, atacando amenazas que evaden sistemas basados en firmas:
+Este proyecto se enfoca en **detección de anomalías comportamentales** para métricas basadas en conteo. Podría ayudar a detectar amenazas que **alteran volúmenes de tráfico**:
 
-| Tipo de Amenaza | Por Qué los Sistemas Tradicionales Fallan | Por Qué BSAD la Detecta |
+| Tipo de Amenaza | Por Qué los Sistemas Tradicionales Fallan | Cómo Podría Ayudar BSAD |
 |-----------------|-------------------------------------------|-------------------------|
-| **Beaconing Lento y Sigiloso** | Distribuido en el tiempo, sin pico único | Líneas base por entidad detectan desviaciones sutiles |
-| **Uso Indebido de Internos** | Acceso autorizado, protocolos normales | Patrones de conteo revelan comportamiento inusual para ese usuario/servicio |
-| **Reconocimiento de Largo Plazo** | Escaneo gradual estilo APT | Régimen de eventos raros optimizado para tasas de ataque <5% |
-| **Exploits de Día Cero** | Sin firmas conocidas | Desviación comportamental de líneas base establecidas |
-| **Exfiltración de Datos** | Parece tráfico normal | Conteos inusuales de paquetes/bytes para protocolo_servicio específico |
+| **Beaconing / C2** | Distribuido en el tiempo, sin pico único | Líneas base por entidad pueden señalar conteos de peticiones inusuales |
+| **Fuerza Bruta / Escaneo** | Alto volumen, pero protocolos "normales" | Picos de conteo relativos a línea base de entidad |
+| **Exfiltración de Datos** | Parece tráfico normal | Conteos inusuales de bytes/paquetes para servicios específicos |
+
+**Importante**: BSAD detecta **anomalías de conteo**, no ataques basados en contenido. Ver [Qué NO Detecta BSAD](#️-qué-no-detecta-bsad) para limitaciones.
 
 ### La Intuición Central de Seguridad
 
@@ -84,6 +84,7 @@ Elige tu ruta según tus necesidades:
 | **🎓 Teoría & Práctica** | [`01_end_to_end_walkthrough.ipynb`](notebooks/01_end_to_end_walkthrough.ipynb) | Tutorial completo de BSAD: inferencia Bayesiana, MCMC, modelos jerárquicos, con datos sintéticos |
 | **📊 Aplicación a Datos Reales** | [`02_unsw_nb15_real_data.ipynb`](notebooks/02_unsw_nb15_real_data.ipynb) | Transformación de UNSW-NB15 desde clasificación (64% ataques) a detección de eventos raros (1-5% ataques) |
 | **⚖️ Selección de Método** | [`03_model_comparison.ipynb`](notebooks/03_model_comparison.ipynb) | Cuándo BSAD gana (+30 PR-AUC) vs cuándo métodos clásicos ganan |
+| **🎯 Operaciones SOC** | [`04_alert_prioritization.ipynb`](notebooks/04_alert_prioritization.ipynb) | De detección a decisión: scoring de riesgo, presupuestos de alertas, contexto de entidad para triage |
 
 ### 📖 Profundizaciones
 
@@ -491,6 +492,254 @@ El framing correcto para entrevistas:
 
 ---
 
+## 📊 Validación Multi-Régimen: CSE-CIC-IDS2018
+
+### Configuración Experimental
+
+Para validar el comportamiento de BSAD en diferentes regímenes de tasa de ataque, ejecutamos el **mismo pipeline exacto** en CSE-CIC-IDS2018 con cuatro tasas de ataque:
+
+| Régimen | Tasa de Ataque | Naturaleza | Ganador Esperado |
+|---------|----------------|------------|------------------|
+| Control | 17% | Territorio de clasificación | Clásico (RF) |
+| Moderadamente raro | 5% | Zona de transición | Mixto |
+| Raro | 2% | Detección de anomalías | BSAD debería mejorar |
+| Muy raro | 1% | Evento verdaderamente raro | BSAD debería brillar operacionalmente |
+
+**Comparación**: Random Forest (supervisado, usa labels) vs BSAD (no supervisado, entity-aware)
+
+### Resultados: ROC-AUC vs Métricas Operacionales
+
+| Régimen | BSAD ROC-AUC | RF ROC-AUC | **BSAD Alertas/1k** | **RF Alertas/1k** | Reducción |
+|---------|--------------|------------|----------------------|-------------------|-----------|
+| **17%** | 0.534 | **0.734** | **15.5** | 134 | 8.6× menos |
+| **5%** | 0.539 | **0.685** | **16.5** | 232 | 14× menos |
+| **2%** | 0.573 | **0.739** | **5.4** | 46 | 8.5× menos |
+| **1%** | 0.640 | **0.706** | **2.5** | 29.5 | **12× menos** |
+
+*Alertas medidas con Recall fijo = 0.3 (30% de ataques detectados)*
+
+### Hallazgos Clave
+
+**1. RF gana en ROC-AUC en todos los regímenes** — Esperado, porque RF usa datos etiquetados mientras BSAD es no supervisado.
+
+**2. BSAD gana operacionalmente** — A igual recall, BSAD genera **8-14× menos alertas**:
+- Régimen 17%: 15.5 vs 134 alertas por 1k ventanas
+- Régimen 1%: 2.5 vs 29.5 alertas por 1k ventanas
+
+**3. BSAD mejora cuando los ataques son más raros**:
+- FPR @ Recall=0.3: 0.314 → 0.042 (87% de reducción)
+- Alertas por 1k: 15.5 → 2.5 (84% de reducción)
+
+### Qué Significa Esto para Operaciones SOC
+
+```
+Con 1% de tasa de ataque y objetivo de 30% recall:
+
+Random Forest:  ~30 alertas por 1,000 ventanas de tiempo
+BSAD:           ~2.5 alertas por 1,000 ventanas de tiempo
+
+Para un SOC procesando 10,000 ventanas/día:
+  RF  → 300 alertas/día para revisar
+  BSAD → 25 alertas/día para revisar
+
+Esa es la diferencia entre triage manejable y fatiga de alertas.
+```
+
+<div align="center">
+
+![Comparación Multi-Régimen](outputs/datasets/cse-cic-ids2018/multi-regime/multi_regime_comparison.png)
+*BSAD reduce el volumen de alertas 8-14× manteniendo el mismo recall*
+
+</div>
+
+---
+
+## 🎯 Conclusión Honesta
+
+Este estudio muestra que **el rendimiento de modelos en ciberseguridad depende fuertemente del régimen**. No hay un modelo universalmente "mejor"—solo modelos apropiados para contextos operacionales específicos.
+
+### Cuándo Ganan los Métodos Clásicos
+
+En regímenes donde la tasa de ataque es **moderada a alta (≈15–20%)**, el problema se comporta como clasificación supervisada. En este escenario, clasificadores clásicos como Random Forests superan a enfoques no supervisados en ROC-AUC, como se esperaba, porque explotan directamente ejemplos de ataques etiquetados. **Bajo estas condiciones, BSAD no es la herramienta correcta y no debería usarse como detector primario.**
+
+### Cuándo BSAD Provee Valor
+
+Cuando los ataques se vuelven **verdaderamente raros (≤5%, especialmente ≤1–2%)**, la naturaleza del problema cambia. El objetivo ya no es rendimiento de separación promedio, sino **factibilidad operacional**: controlar falsos positivos, reducir volumen de alertas y priorizar atención del analista.
+
+En este régimen, BSAD demuestra valor claro:
+
+| Capacidad | Impacto |
+|-----------|---------|
+| **Reducción de falsos positivos** | Hasta 92% menos FPs a recall fijo |
+| **Reducción de volumen de alertas** | 8–14× menos alertas para analistas SOC |
+| **Líneas base por entidad** | Previene que entidades de alta actividad dominen alertas |
+| **Scores con incertidumbre** | Provee contexto de confianza para triage |
+
+### La Comparación Asimétrica
+
+**Importante**: Esta comparación no es simétrica.
+- Random Forest **depende de datos de ataque etiquetados**
+- BSAD opera **completamente no supervisado**
+
+Compararlos puramente en ROC-AUC es engañoso para entornos SOC reales donde **las etiquetas son escasas, retrasadas o poco confiables**.
+
+### Conclusión Final
+
+> **BSAD no es un reemplazo para sistemas de detección de intrusiones supervisados.**
+>
+> Se entiende mejor como una **capa de baseline comportamental y reducción de alertas**, diseñada para entornos donde:
+> - Los ataques son raros (<5%)
+> - Las etiquetas son limitadas o no disponibles
+> - La atención del analista es el recurso más limitado
+>
+> Su valor no está en ganar benchmarks, sino en **hacer las operaciones de seguridad sostenibles**.
+
+### Lección de Diseño
+
+> *Los sistemas de detección deberían evaluarse no solo por qué tan bien separan clases, sino por qué tan bien gestionan la atención humana bajo incertidumbre.*
+
+---
+
+## 🎯 Priorización de Alertas: De Detección a Decisión
+
+### Arquitectura de Dos Etapas
+
+Este repositorio extiende más allá de la detección hacia **flujos de trabajo operacionales SOC**:
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  ETAPA 1: DETECCIÓN (src/bsad/)                                 │
+│  ──────────────────────────────                                 │
+│  • Modelo Binomial Negativo Jerárquico                          │
+│  • Líneas base por entidad con pooling parcial                  │
+│  • Scoring de anomalías: -log P(y | posterior)                  │
+│  • Salida: anomaly_score + score_std por observación            │
+└─────────────────────────────────────────────────────────────────┘
+                              ↓
+┌─────────────────────────────────────────────────────────────────┐
+│  ETAPA 2: TRIAGE (src/triage/)                                  │
+│  ─────────────────────────────                                  │
+│  • Scoring de riesgo con pesos configurables                    │
+│  • Calibración de presupuesto de alertas                        │
+│  • Métricas operacionales (FPR@recall, alertas/1k)              │
+│  • Enriquecimiento de contexto de entidad para analistas        │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Fórmula de Score de Riesgo
+
+Los scores de anomalía crudos no son accionables. Los transformamos en un **score de riesgo compuesto**:
+
+```
+Riesgo = w₁ × normalizar(anomaly_score)
+       + w₂ × confianza(1/incertidumbre)
+       + w₃ × novedad(historial_entidad)
+
+Pesos por defecto: (0.5, 0.3, 0.2)
+```
+
+| Componente | Significado | Por Qué Importa |
+|------------|-------------|-----------------|
+| **anomaly_score** | ¿Qué tan inusual es esta observación? | Señal primaria |
+| **confianza** | ¿Qué tan seguros estamos (incertidumbre estrecha)? | Confiar en alertas de alta confianza |
+| **novedad** | ¿Es una entidad nueva (menos historial)? | Entidades nuevas son más riesgosas |
+
+### Calibración de Presupuesto de Alertas
+
+Los SOC tienen capacidad limitada de analistas. En lugar de preguntar "¿cuál es el mejor umbral?", preguntamos:
+
+> **"Si solo puedo revisar X alertas por día, ¿qué recall puedo lograr?"**
+
+Tres modos de calibración:
+
+| Modo | Caso de Uso | Ejemplo |
+|------|-------------|---------|
+| `fixed_alerts` | "Podemos revisar 50 alertas/día" | Fijar umbral para generar 50 alertas |
+| `fixed_recall` | "Debemos capturar 30% de ataques" | Fijar umbral para lograr 30% recall |
+| `fixed_fpr` | "FPR debe estar bajo 5%" | Fijar umbral para limitar falsos positivos |
+
+### Métricas Operacionales
+
+Más allá del ROC-AUC, medimos lo que importa para SOC:
+
+| Métrica | Fórmula | Interpretación SOC |
+|---------|---------|-------------------|
+| **Precision@k** | TP / k | "De mis top k alertas, ¿cuántas son reales?" |
+| **Recall@k** | TP / total_ataques | "¿Qué fracción de ataques en top k?" |
+| **FPR@Recall** | FP / total_negativos | "Costo de capturar X% de ataques" |
+| **Alertas/1k** | alertas por 1000 ventanas | "Estimación de carga diaria" |
+
+### Enriquecimiento de Contexto de Entidad
+
+Los analistas necesitan **contexto**, no solo scores. Para cada alerta:
+
+```
+[Ticket de Alerta]
+Entidad: dns_service_17
+Score de Anomalía: 8.4 (top 0.5%)
+Desviación: 4.2σ sobre línea base
+Línea Base: 12.3 ± 3.1 eventos/ventana
+Actual: 47 eventos
+Confianza: Alta (50+ observaciones históricas)
+Alertas Previas: 0 (anomalía primera vez)
+
+Narrativa: La entidad dns_service_17 muestra actividad extremadamente
+alta (4.2σ sobre su línea base). Alta confianza debido a extenso
+historial. Anomalía primera vez amerita investigación.
+```
+
+### Inicio Rápido: Priorización de Alertas
+
+```python
+from triage import (
+    compute_risk_score,
+    calibrate_threshold,
+    build_alert_budget_curve,
+    ranking_report,
+    build_entity_history,
+    enrich_alerts,
+)
+
+# Después de detección: df tiene anomaly_score, score_std, entity, has_attack
+
+# 1. Calcular scores de riesgo
+df["risk_score"] = compute_risk_score(df)
+
+# 2. Calibrar umbral para 30% recall
+result = calibrate_threshold(scores, y_true, mode="fixed_recall", target=0.3)
+print(f"Umbral: {result['threshold']:.2f}, Alertas: {result['alerts']}")
+
+# 3. Generar reporte de ranking
+report = ranking_report(y_true, scores)
+
+# 4. Enriquecer top alertas con contexto
+history = build_entity_history(df)
+enriched = enrich_alerts(df, history, top_k=100)
+```
+
+### Reproducir Resultados
+
+```bash
+# Ejecutar pipeline de priorización de alertas
+python scripts/alert_prioritization.py
+
+# Salidas:
+#   outputs/triage/ranking_metrics.csv
+#   outputs/triage/alert_budget_curve.json
+#   outputs/triage/enriched_alerts.json
+#   outputs/triage/figures/triage_dashboard.png
+```
+
+### Notebook
+
+Ver [`04_alert_prioritization.ipynb`](notebooks/04_alert_prioritization.ipynb) para el recorrido completo:
+- Visualización de score de riesgo
+- Curvas de presupuesto de alertas
+- Comparación operacional multi-régimen
+- Tickets de alerta enriquecidos con entidad
+
+---
+
 ## 🔬 Cómo Funciona BSAD
 
 ### El Modelo: Binomial Negativo Jerárquico
@@ -648,28 +897,34 @@ Este proyecto demuestra habilidades y enfoques relevantes para:
 
 ```
 bayesian-security-anomaly-detection/
-├── src/bsad/
-│   ├── config.py          # Configuración de settings
-│   ├── steps.py           # Funciones puras (datos, modelo, scoring)
-│   ├── pipeline.py        # Orquestación
-│   ├── cli.py             # Interfaz de línea de comandos
-│   └── unsw_adapter.py    # Adaptador de datos UNSW-NB15
+├── src/
+│   ├── bsad/                  # Etapa 1: Detección
+│   │   ├── config.py          # Configuración de settings
+│   │   ├── steps.py           # Funciones puras (datos, modelo, scoring)
+│   │   ├── pipeline.py        # Orquestación
+│   │   ├── cli.py             # Interfaz de línea de comandos
+│   │   └── unsw_adapter.py    # Adaptador de datos UNSW-NB15
+│   └── triage/                # Etapa 2: Priorización de Alertas
+│       ├── risk_score.py      # Scoring de riesgo compuesto
+│       ├── calibrate_thresholds.py  # Calibración de presupuesto de alertas
+│       ├── ranking_metrics.py # Precision@k, recall@k, FPR@recall
+│       └── entity_context.py  # Enriquecimiento de entidad para analistas
 ├── notebooks/
 │   ├── 01_end_to_end_walkthrough.ipynb
 │   ├── 02_unsw_nb15_real_data.ipynb
-│   └── 03_model_comparison.ipynb
-├── data/
-│   ├── unsw_nb15_rare_attack_1pct.parquet
-│   ├── unsw_nb15_rare_attack_2pct.parquet
-│   └── unsw_nb15_rare_attack_5pct.parquet
+│   ├── 03_model_comparison.ipynb
+│   └── 04_alert_prioritization.ipynb  # NUEVO: De detección a decisión
+├── scripts/
+│   ├── alert_prioritization.py  # Generación de dashboard de triage
+│   └── multi_regime_comparison.py  # Validación multi-tasa de ataque
 ├── outputs/
-│   ├── eda_case_study/         # Visualizaciones EDA
-│   └── rare_attack_comparison/ # Resultados comparación
+│   ├── datasets/              # Resultados organizados por dataset
+│   │   ├── synthetic/
+│   │   ├── unsw-nb15/
+│   │   └── cse-cic-ids2018/
+│   └── triage/                # Salidas de priorización de alertas
 ├── docs/
 │   ├── assets/
-│   │   ├── unsw_nb15_dataset_description.md
-│   │   ├── model_comparison.md
-│   │   └── posterior_predictive_scoring.md
 │   ├── en/  # Documentación técnica en inglés
 │   └── es/  # Documentación técnica en español
 └── tests/

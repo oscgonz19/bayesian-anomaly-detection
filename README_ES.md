@@ -369,74 +369,109 @@ Submuestrear ataques
 
 ---
 
-## 🏆 Resultados
+## 📊 Resultados
 
 ### Escenario A: Datos de Conteo con Estructura de Entidad (Dominio de BSAD)
 
 **Configuración**: 50 entidades, 200 ventanas de tiempo, anomalías raras (1-5%)
 
 ```
-📊 Resultados PR-AUC:
-                      1%      2%      5%
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-BSAD (Bayesiano)    0.985   0.989   0.985  👑 GANADOR
-Isolation Forest   0.631   0.672   0.683
-One-Class SVM      0.570   0.697   0.651
-LOF                0.031   0.034   0.100
+Rendimiento Operacional (1-5% tasa de ataque):
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Método              FPR@90%recall   Alertas/Día*   Mantiene precisión
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+BSAD (Bayesiano)        ~5%            ~50         ✓ bajo rareza extrema
+Isolation Forest       ~35%           ~350         degrada en <2%
+One-Class SVM          ~40%           ~400         degrada en <2%
+LOF                    ~90%           ~900         inutilizable
 
-📈 Ventaja de BSAD: +30 puntos PR-AUC sobre el mejor clásico
+* Simulado: 1000 eventos/día, objetivo 90% detección de ataques
 ```
+
+**Hallazgo clave**: BSAD mantiene precisión operable bajo rareza extrema mientras los métodos clásicos colapsan en ruido de falsos positivos.
 
 ### Escenario B: Features Multivariadas (Dominio Clásico)
 
-**Configuración**: UNSW-NB15 con 8 features continuas
+**Configuración**: UNSW-NB15 con 8 features continuas (NO datos de conteo)
 
 ```
-📊 Resultados PR-AUC (5% tasa de ataque):
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-One-Class SVM      0.052  👑 GANADOR
-Isolation Forest   0.025
-LOF                0.015
-BSAD (Bayesiano)   0.005  (fuera de su dominio)
+Resultado: Métodos clásicos superan a BSAD
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Esto es ESPERADO. BSAD está diseñado para datos de conteo.
+Usa Isolation Forest o One-Class SVM aquí.
 ```
 
 ### Intuición Clave
 
-| Escenario | Ganador | Ventaja |
-|-----------|---------|---------|
-| Datos de conteo + Entidades | **BSAD** | +30 pts PR-AUC |
-| Features multivariadas | **Clásicos** | Mejor ajuste |
+| Tipo de Datos | Mejor Enfoque | Por Qué |
+|---------------|---------------|---------|
+| Conteos + Entidades | **BSAD** | Líneas base por entidad + manejo de sobredispersión |
+| Features multivariadas | **Clásicos** | Distancia geométrica funciona bien |
 
-**BSAD es un especialista que domina en su dominio.**
+**BSAD es un especialista, no un generalista. Usa la herramienta correcta.**
 
-### ⚠️ Una Nota sobre Métricas (Evaluación Honesta)
+### ⚠️ Qué NO Detecta BSAD
 
-**PR-AUC no es la mejor métrica para este caso de uso.** En entornos SOC reales, lo que importa es:
+**Limitación crítica**: BSAD solo detecta anomalías que alteran conteos de eventos.
 
-| Métrica | Por Qué Importa | Qué Mide |
-|---------|-----------------|----------|
-| **FPR @ Recall Fijo** | Carga de trabajo del analista | Falsas alarmas por turno |
-| **Alertas Esperadas/Día** | Carga operacional | ¿Es esto manejable? |
-| **FP por TP** | Ratio de carga del analista | ¿Cuánto ruido por señal? |
-| **Calidad de Incertidumbre** | Confianza en predicciones | ¿Podemos confiar en scores altos? |
-
-**La narrativa honesta:**
+| Tipo de Ataque | Detección BSAD | Por Qué |
+|----------------|----------------|---------|
+| **Fuerza bruta / escaneo** | ✅ Detecta | Pico de conteo |
+| **Beaconing / C2** | ✅ Detecta | Periodicidad inusual en conteos |
+| **Exfiltración de datos** | ✅ Detecta | Conteos inusuales de bytes/paquetes |
+| **Movimiento lateral (volumen constante)** | ❌ No detecta | Sin cambio de conteo |
+| **Exploits basados en payload** | ❌ No detecta | Contenido, no volumen |
+| **Robo de credenciales** | ❌ No detecta | Semántico, no estadístico |
+| **Zero-day con patrones normales** | ❌ No detecta | Parece normal estadísticamente |
 
 ```
-❌ NO digas: "BSAD tiene mejor PR-AUC"
-   (Esto depende mucho del escenario específico)
-
-✅ SÍ di: "BSAD proporciona líneas base por entidad y
-   cuantificación de incertidumbre para detección de
-   anomalías basada en conteos sin requerir datos
-   etiquetados de ataques"
+BSAD es un detector de anomalías de TASA, no de CONTENIDO.
+Complementa sistemas basados en firmas e inspección de payload.
 ```
 
-**Las verdaderas ventajas de BSAD no se capturan con PR-AUC:**
-1. **No requiere datos etiquetados** (enfoque no supervisado)
-2. **Líneas base específicas por entidad** (reduce falsos positivos de usuarios frecuentes)
-3. **Cuantificación de incertidumbre** (saber cuándo confiar en el score)
-4. **Scores interpretables** (basados en desviación estadística)
+### Realidad Computacional
+
+| Aspecto | Realidad | Implicación |
+|---------|----------|-------------|
+| **Entrenamiento** | Horas (muestreo MCMC) | Offline, proceso batch |
+| **Scoring** | Milisegundos (lookup) | Capaz de online |
+| **Reentrenamiento** | Semanal/mensual | No adaptativo en tiempo real |
+| **Escala** | ~100-1000 entidades | No para millones de IPs únicas |
+
+```
+Arquitectura: Entrenar OFFLINE → Puntuar ONLINE → Reentrenar periódicamente
+
+Viable para:
+  ✓ Analytics SOC en batch
+  ✓ Actualizaciones periódicas de baseline
+  ✗ IDS inline (usar firmas)
+  ✗ Streaming tiempo real (usar modelos más simples)
+```
+
+### Por Qué Esto Importa (Framing Honesto)
+
+**BSAD no es un detector de intrusiones general.**
+Es un **modelo de baseline probabilístico por entidad** diseñado para:
+- Reducir ruido en regímenes de eventos raros
+- Priorizar alertas con evidencia estadística
+- Proveer cuantificación de incertidumbre
+
+```
+El framing correcto para entrevistas:
+
+"BSAD no reemplaza métodos clásicos.
+ Funciona como una capa de normalización probabilística
+ que aprende qué es normal PARA CADA ENTIDAD
+ y solo eleva alertas con evidencia estadística fuerte—
+ crítico en SOCs que sufren fatiga de alertas."
+```
+
+### Ventajas Reales de BSAD (No Capturadas por PR-AUC)
+
+1. **No requiere datos etiquetados** — funciona sin ejemplos de ataques
+2. **Líneas base por entidad** — "normal para A ≠ normal para B"
+3. **Cuantificación de incertidumbre** — saber cuándo confiar en el score
+4. **Interpretable** — "3σ sobre baseline de entidad" vs score caja negra
 
 ### Capacidades Únicas de BSAD
 

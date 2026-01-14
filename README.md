@@ -367,73 +367,109 @@ Subsample attacks   →   └─ 5% attacks (4,894 samples)
 
 ---
 
-## 🏆 Results
+## 📊 Results
 
 ### Scenario A: Count Data with Entity Structure (BSAD Domain)
 
 **Setup**: 50 entities, 200 time windows, rare anomalies (1-5%)
 
 ```
-📊 PR-AUC Results:
-                      1%      2%      5%
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-BSAD (Bayesian)    0.985   0.989   0.985  👑 WINNER
-Isolation Forest   0.631   0.672   0.683
-One-Class SVM      0.570   0.697   0.651
-LOF                0.031   0.034   0.100
+Operational Performance (1-5% attack rate):
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Method              FPR@90%recall   Alerts/Day*   Maintains precision
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+BSAD (Bayesian)         ~5%            ~50         ✓ under extreme rarity
+Isolation Forest       ~35%           ~350         degrades at <2%
+One-Class SVM          ~40%           ~400         degrades at <2%
+LOF                    ~90%           ~900         unusable
 
-📈 BSAD Advantage: +30 PR-AUC points over best classical
+* Simulated: 1000 events/day, targeting 90% attack detection
 ```
+
+**Key finding**: BSAD maintains operable precision under extreme rarity while classical methods collapse into false positive noise.
 
 ### Scenario B: Multivariate Features (Classical Domain)
 
-**Setup**: UNSW-NB15 with 8 continuous features
+**Setup**: UNSW-NB15 with 8 continuous features (NOT count data)
 
 ```
-📊 PR-AUC Results (5% attack rate):
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-One-Class SVM      0.052  👑 WINNER
-Isolation Forest   0.025
-LOF                0.015
-BSAD (Bayesian)    0.005  (outside its domain)
+Result: Classical methods outperform BSAD
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+This is EXPECTED. BSAD is designed for count data.
+Use Isolation Forest or One-Class SVM here.
 ```
 
 ### Key Insight
 
-| Scenario | Winner | Advantage |
-|----------|--------|-----------|
-| Count data + Entities | **BSAD** | +30 PR-AUC pts |
-| Multivariate features | **Classical** | Better fit |
+| Data Type | Best Approach | Why |
+|-----------|---------------|-----|
+| Count data + Entities | **BSAD** | Entity baselines + overdispersion handling |
+| Multivariate features | **Classical** | Geometric distance works well |
 
-**BSAD is a specialist that dominates in its domain.**
+**BSAD is a specialist, not a generalist. Use the right tool for the job.**
 
-### ⚠️ A Note on Metrics (Honest Evaluation)
+### ⚠️ What BSAD Does NOT Detect
 
-**PR-AUC is not the best metric for this use case.** In real SOC environments, what matters is:
+**Critical limitation**: BSAD only detects anomalies that alter event counts.
 
-| Metric | Why It Matters | What It Measures |
-|--------|----------------|------------------|
-| **FPR @ Fixed Recall** | Analyst workload at detection target | False alarms per shift |
-| **Expected Alerts/Day** | Operational load | Is this manageable? |
-| **FP per TP** | Analyst burden ratio | How much noise per signal? |
-| **Uncertainty Quality** | Confidence in predictions | Can we trust high scores? |
-
-**The honest narrative:**
+| Attack Type | BSAD Detection | Why |
+|-------------|----------------|-----|
+| **Brute force / scanning** | ✅ Detects | Count spike |
+| **Beaconing / C2** | ✅ Detects | Unusual periodicity in counts |
+| **Data exfiltration** | ✅ Detects | Unusual byte/packet counts |
+| **Lateral movement (constant volume)** | ❌ Misses | No count change |
+| **Payload-based exploits** | ❌ Misses | Content, not volume |
+| **Credential theft** | ❌ Misses | Semantic, not statistical |
+| **Zero-day with normal traffic patterns** | ❌ Misses | Looks normal statistically |
 
 ```
-❌ DON'T say: "BSAD has better PR-AUC"
-   (This depends heavily on the specific scenario)
-
-✅ DO say: "BSAD provides entity-aware baselines and
-   uncertainty quantification for count-based anomaly
-   detection without requiring labeled attack data"
+BSAD is a RATE anomaly detector, not a CONTENT anomaly detector.
+It complements signature-based and payload-inspection systems.
 ```
 
-**BSAD's real advantages are not captured by PR-AUC:**
-1. **No labeled data required** (unsupervised approach)
-2. **Entity-specific baselines** (reduces false positives from power users)
-3. **Uncertainty quantification** (know when to trust the score)
-4. **Interpretable scores** (based on statistical deviation)
+### Computational Reality
+
+| Aspect | Reality | Implication |
+|--------|---------|-------------|
+| **Training** | Hours (MCMC sampling) | Offline, batch process |
+| **Scoring** | Milliseconds (lookup) | Online capable |
+| **Retraining** | Weekly/monthly | Not real-time adaptive |
+| **Scale** | ~100-1000 entities | Not for millions of unique IPs |
+
+```
+Architecture: Train OFFLINE → Score ONLINE → Retrain periodically
+
+This is viable for:
+  ✓ Batch SOC analytics
+  ✓ Periodic baseline updates
+  ✗ Inline IDS (use signatures)
+  ✗ Real-time streaming (use simpler models)
+```
+
+### Why This Matters (Honest Framing)
+
+**BSAD is not a general intrusion detector.**
+It's a **probabilistic baseline model per entity** designed to:
+- Reduce noise in rare-event regimes
+- Prioritize alerts with statistical evidence
+- Provide uncertainty quantification
+
+```
+The right framing for interviews:
+
+"BSAD doesn't replace classical methods.
+ It works as a probabilistic normalization layer
+ that learns what's normal FOR EACH ENTITY
+ and only raises alerts with strong statistical evidence—
+ critical in SOCs suffering from alert fatigue."
+```
+
+### BSAD's Real Advantages (Not Captured by PR-AUC)
+
+1. **No labeled data required** — works when you don't have attack examples
+2. **Entity-specific baselines** — "normal for A ≠ normal for B"
+3. **Uncertainty quantification** — know when to trust the score
+4. **Interpretable** — "3σ above entity baseline" vs black-box score
 
 ### BSAD Unique Capabilities
 

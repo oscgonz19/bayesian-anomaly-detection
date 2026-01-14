@@ -30,7 +30,7 @@ This project explores how **hierarchical Bayesian models** can be used for **beh
 
 <div align="center">
 
-![BSAD Summary Dashboard](outputs/eda_case_study/05_summary_dashboard.png)
+![BSAD Summary Dashboard](outputs/case-study/05_summary_dashboard.png)
 *Complete overview: The problem, solution, and results*
 
 </div>
@@ -64,7 +64,7 @@ Example:
 
 <div align="center">
 
-![What BSAD Solves](outputs/eda_case_study/01_what_bsad_solves.png)
+![What BSAD Solves](outputs/case-study/01_what_bsad_solves.png)
 *Understanding what BSAD detects: count spikes, overdispersion, and entity-specific baselines*
 
 </div>
@@ -311,7 +311,7 @@ Classical Wins:
 
 <div align="center">
 
-![Head-to-Head Comparison](outputs/comparison/head_to_head_comparison.png)
+![Head-to-Head Comparison](outputs/datasets/unsw-nb15/model-comparison/head_to_head_comparison.png)
 *BSAD dominates in its domain (Scenario A), classical methods win elsewhere (Scenario B)*
 
 </div>
@@ -349,7 +349,7 @@ Subsample attacks   →   └─ 5% attacks (4,894 samples)
 
 <div align="center">
 
-![Regime Transformation](outputs/unsw/regime_transformation.png)
+![Regime Transformation](outputs/datasets/unsw-nb15/original/regime_transformation.png)
 *From classification (68% attacks) to true anomaly detection (1-5% attacks)*
 
 </div>
@@ -428,6 +428,15 @@ BSAD is a RATE anomaly detector, not a CONTENT anomaly detector.
 It complements signature-based and payload-inspection systems.
 ```
 
+### Key Limitations (Quick Reference)
+
+- ❌ **No labels required** but cannot learn attack signatures
+- ❌ **Not real-time** — MCMC training takes hours
+- ❌ **Count data only** — not for continuous features
+- ❌ **Needs entity structure** — users, IPs, services
+- ❌ **Rare events only** — breaks down at >10% attack rate
+- ❌ **Misses constant-volume attacks** — only detects rate changes
+
 ### Computational Reality
 
 | Aspect | Reality | Implication |
@@ -467,14 +476,14 @@ It's a **probabilistic baseline model per entity** designed to:
 
 <div align="center">
 
-![Uncertainty Quantification](outputs/comparison/uncertainty_quantification.png)
+![Uncertainty Quantification](outputs/datasets/unsw-nb15/model-comparison/uncertainty_quantification.png)
 *BSAD provides confidence intervals, not just point estimates*
 
 </div>
 
 <div align="center">
 
-![Entity-Specific Baselines](outputs/comparison/entity_baselines.png)
+![Entity-Specific Baselines](outputs/datasets/unsw-nb15/model-comparison/entity_baselines.png)
 *Each entity learns its own baseline rate with uncertainty bounds*
 
 </div>
@@ -795,7 +804,7 @@ For each observation:
 
 <div align="center">
 
-![Overdispersion Analysis](outputs/unsw/overdispersion_analysis.png)
+![Overdispersion Analysis](outputs/datasets/unsw-nb15/original/overdispersion_analysis.png)
 *Security data shows overdispersion: Variance >> Mean (all points above the Poisson line)*
 
 </div>
@@ -844,9 +853,24 @@ pipeline.run_all()
 | **04. Alert Prioritization** | Risk scoring, alert budgets, precision@k, recall@k, entity context enrichment | From detection to SOC decision support |
 
 **Visual Outputs Created:**
-- 📊 `outputs/eda_case_study/` - 5 comprehensive EDA visualizations
-- 📈 `outputs/rare_attack_comparison/` - Model comparison charts
+- 📊 `outputs/case-study/` - 5 comprehensive EDA visualizations
+- 📈 `outputs/datasets/unsw-nb15/model-comparison/` - Model comparison charts
 - 🎯 All results demonstrate: **BSAD is a specialist, not a generalist**
+
+### Reproduce All Results (3 Commands)
+
+```bash
+# 1. Run tests
+PYTHONPATH=src pytest tests/test_triage.py -q
+
+# 2. Generate triage dashboard
+python scripts/alert_prioritization.py
+
+# 3. Multi-regime comparison (requires CSE-CIC data)
+python scripts/multi_regime_comparison.py
+```
+
+Outputs saved to `outputs/triage/` and `outputs/datasets/`.
 
 ---
 

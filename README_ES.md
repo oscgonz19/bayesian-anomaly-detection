@@ -30,7 +30,7 @@ Este proyecto explora cómo los **modelos Bayesianos jerárquicos** pueden usars
 
 <div align="center">
 
-![BSAD Dashboard Resumen](outputs/eda_case_study/05_summary_dashboard.png)
+![BSAD Dashboard Resumen](outputs/case-study/05_summary_dashboard.png)
 *Vista completa: El problema, la solución y los resultados*
 
 </div>
@@ -64,7 +64,7 @@ Ejemplo:
 
 <div align="center">
 
-![Qué Resuelve BSAD](outputs/eda_case_study/01_what_bsad_solves.png)
+![Qué Resuelve BSAD](outputs/case-study/01_what_bsad_solves.png)
 *Entendiendo qué detecta BSAD: picos de conteo, sobredispersión y líneas base por entidad*
 
 </div>
@@ -312,7 +312,7 @@ Clásicos Ganan:
 
 <div align="center">
 
-![Comparación Directa](outputs/comparison/head_to_head_comparison.png)
+![Comparación Directa](outputs/datasets/unsw-nb15/model-comparison/head_to_head_comparison.png)
 *BSAD domina en su dominio (Escenario A), métodos clásicos ganan en otro lugar (Escenario B)*
 
 </div>
@@ -351,7 +351,7 @@ Submuestrear ataques
 
 <div align="center">
 
-![Transformación del Régimen](outputs/unsw/regime_transformation.png)
+![Transformación del Régimen](outputs/datasets/unsw-nb15/original/regime_transformation.png)
 *De clasificación (68% ataques) a verdadera detección de anomalías (1-5% ataques)*
 
 </div>
@@ -478,14 +478,14 @@ El framing correcto para entrevistas:
 
 <div align="center">
 
-![Cuantificación de Incertidumbre](outputs/comparison/uncertainty_quantification.png)
+![Cuantificación de Incertidumbre](outputs/datasets/unsw-nb15/model-comparison/uncertainty_quantification.png)
 *BSAD proporciona intervalos de confianza, no solo estimaciones puntuales*
 
 </div>
 
 <div align="center">
 
-![Líneas Base por Entidad](outputs/comparison/entity_baselines.png)
+![Líneas Base por Entidad](outputs/datasets/unsw-nb15/model-comparison/entity_baselines.png)
 *Cada entidad aprende su propia tasa base con límites de incertidumbre*
 
 </div>
@@ -810,7 +810,7 @@ Esto previene sobreajuste en entidades con datos escasos.
 
 <div align="center">
 
-![Análisis de Sobredispersión](outputs/unsw/overdispersion_analysis.png)
+![Análisis de Sobredispersión](outputs/datasets/unsw-nb15/original/overdispersion_analysis.png)
 *Los datos de seguridad muestran sobredispersión: Varianza >> Media (todos los puntos sobre la línea Poisson)*
 
 </div>
@@ -858,7 +858,7 @@ pipeline.run_all()
 | **03. Comparación de Modelos** | Escenario A (BSAD gana), Escenario B (Clásicos ganan), cuantificación de incertidumbre, líneas base por entidad | Cara a cara: +30 PR-AUC de ventaja en dominio de BSAD |
 
 **Outputs Visuales Creados:**
-- 📊 `outputs/eda_case_study/` - 5 visualizaciones EDA comprensivas
+- 📊 `outputs/case-study/` - 5 visualizaciones EDA comprensivas
 - 📈 `outputs/rare_attack_comparison/` - Gráficos de comparación de modelos
 - 🎯 Todos los resultados demuestran: **BSAD es un especialista, no un generalista**
 

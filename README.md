@@ -9,11 +9,13 @@
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![UNSW-NB15](https://img.shields.io/badge/dataset-UNSW--NB15-purple.svg)](https://research.unsw.edu.au/projects/unsw-nb15-dataset)
 
+[Start Here 🗺️](#-project-overview--navigation) •
 [The Problem](#-the-problem) •
-[When to Use BSAD](#-when-to-use-bsad) •
-[Case Study](#-case-study-unsw-nb15) •
+[When to Use](#-when-to-use-bsad) •
 [Results](#-results) •
 [Quick Start](#-quick-start)
+
+[**🇪🇸 Versión en Español**](README_ES.md)
 
 </div>
 
@@ -22,6 +24,43 @@
 ## 🎯 One-Line Summary
 
 **BSAD detects rare COUNT ANOMALIES per ENTITY with uncertainty quantification—achieving +30 PR-AUC points over classical methods in its domain.**
+
+---
+
+## 🗺️ Project Overview & Navigation
+
+This project demonstrates **when and why** to use Bayesian hierarchical modeling for anomaly detection, using UNSW-NB15 network traffic data as a comprehensive case study.
+
+### 📚 Three Learning Paths
+
+Choose your journey based on your needs:
+
+| Path | Start Here | What You'll Learn |
+|------|-----------|-------------------|
+| **🎓 Theory & Practice** | [`01_end_to_end_walkthrough.ipynb`](notebooks/01_end_to_end_walkthrough.ipynb) | Complete BSAD tutorial: Bayesian inference, MCMC, hierarchical models, with synthetic data |
+| **📊 Real Data Application** | [`02_unsw_nb15_real_data.ipynb`](notebooks/02_unsw_nb15_real_data.ipynb) | UNSW-NB15 transformation from classification (64% attacks) to rare-event detection (1-5% attacks) |
+| **⚖️ Method Selection** | [`03_model_comparison.ipynb`](notebooks/03_model_comparison.ipynb) | When BSAD wins (+30 PR-AUC) vs when classical methods win |
+
+### 📖 Deep Dives
+
+| Document | Purpose |
+|----------|---------|
+| [`docs/assets/unsw_nb15_dataset_description.md`](docs/assets/unsw_nb15_dataset_description.md) | **What are network flows?** Comprehensive dataset documentation explaining why context matters |
+| [`docs/assets/model_comparison.md`](docs/assets/model_comparison.md) | Decision framework: BSAD vs Isolation Forest vs One-Class SVM vs LOF |
+| [`docs/assets/posterior_predictive_scoring.md`](docs/assets/posterior_predictive_scoring.md) | How BSAD scores work: `-log P(y \| posterior)` |
+
+### 🎯 Quick Decision: Should I Use BSAD?
+
+**✅ YES** if your data has **ALL** of:
+- COUNT data (integers: logins, requests, packets)
+- Entity structure (users, IPs, services, devices)
+- Rare anomalies (<5% attack rate)
+- Overdispersion (Variance >> Mean)
+
+**❌ NO** if you have:
+- Continuous multivariate features → Use **Isolation Forest** or **One-Class SVM**
+- High attack rates (>10%) → This is classification, use **Random Forest** or **XGBoost**
+- No entity structure → Use classical anomaly detection
 
 ---
 
@@ -121,12 +160,16 @@ Use BSAD when **ALL** of these apply:
 
 **UNSW-NB15** is a widely-used network intrusion detection dataset from the Australian Centre for Cyber Security.
 
+> **📖 Full Dataset Description**: See [`docs/assets/unsw_nb15_dataset_description.md`](docs/assets/unsw_nb15_dataset_description.md) for comprehensive documentation on what network flows are, dataset structure, and why context matters.
+
 | Property | Original | Problem |
 |----------|----------|---------|
-| Records | 257,673 | |
+| Records | 257,673 flows | |
 | Attack Rate | **64%** | ❌ This is CLASSIFICATION |
-| Features | 36 continuous | ❌ Not count data |
-| Entities | None defined | ❌ No hierarchy |
+| Features | 49 features | ❌ Not count data natively |
+| Entities | None explicit | ❌ No hierarchy (but implicit in `proto_service`) |
+
+**Critical Understanding**: UNSW-NB15 contains *network flows*, not packets. Each row is a complete communication story between two machines. The dataset has implicit entity structure through traffic types (`proto_service`), which can be exploited for Bayesian modeling.
 
 ### Our Transformation: Rare-Attack Regime
 
@@ -273,11 +316,18 @@ pipeline.run_all()
 
 ### Explore Notebooks
 
-| Notebook | Description |
-|----------|-------------|
-| [`01_end_to_end_walkthrough.ipynb`](notebooks/01_end_to_end_walkthrough.ipynb) | Complete tutorial with theory |
-| [`02_unsw_nb15_real_data.ipynb`](notebooks/02_unsw_nb15_real_data.ipynb) | UNSW-NB15 case study |
-| [`03_model_comparison.ipynb`](notebooks/03_model_comparison.ipynb) | BSAD vs Classical comparison |
+**See the [📚 Three Learning Paths](#-project-overview--navigation) section above for detailed guidance on which notebook to start with.**
+
+| Notebook | Key Concepts | Output |
+|----------|--------------|--------|
+| **01. End-to-End Walkthrough** | Bayesian inference, MCMC, hierarchical models, partial pooling, posterior predictive checks | Synthetic data demo with full theory |
+| **02. UNSW-NB15 Real Data** | Statistical regimes (64% → 1-5%), network flows, overdispersion, entity structure, rare-attack transformation | Demonstrates why BSAD needs proper anomaly detection setup |
+| **03. Model Comparison** | Scenario A (BSAD wins), Scenario B (Classical wins), uncertainty quantification, entity baselines | Head-to-head: +30 PR-AUC advantage in BSAD's domain |
+
+**Visual Outputs Created:**
+- 📊 `outputs/eda_case_study/` - 5 comprehensive EDA visualizations
+- 📈 `outputs/rare_attack_comparison/` - Model comparison charts
+- 🎯 All results demonstrate: **BSAD is a specialist, not a generalist**
 
 ---
 

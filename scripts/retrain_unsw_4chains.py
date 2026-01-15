@@ -20,8 +20,8 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from bsad.unsw_adapter import UNSWSettings, load_unsw_data, build_modeling_table, get_model_arrays
 
-# Output directory
-OUTPUT_DIR = Path("outputs/unsw")
+# Output directory - organized by dataset/regime
+OUTPUT_DIR = Path("outputs/datasets/unsw-nb15/original")
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 print("="*70)

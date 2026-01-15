@@ -1,0 +1,51 @@
+{
+  "bsad": {
+    "accuracy": 0.42354348197505554,
+    "precision": 0.3175438596491228,
+    "recall": 0.8467836257309942,
+    "f1": 0.46188197767145134,
+    "roc_auc": 0.5323224688158565,
+    "pr_auc": 0.30421829953292456,
+    "threshold": 1.6083121638306848
+  },
+  "classical": {
+    "RandomForest": {
+      "accuracy": 0.7814702102721252,
+      "precision": 0.17798945892364973,
+      "recall": 0.07577192260189379,
+      "f1": 0.10629358513449128,
+      "roc_auc": 0.5734858141077748,
+      "pr_auc": 0.20823838358386831
+    },
+    "LogisticRegression": {
+      "accuracy": 0.8284919435696836,
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0,
+      "roc_auc": 0.5684957139041826,
+      "pr_auc": 0.22171791147631853
+    },
+    "IsolationForest": {
+      "accuracy": 0.7097849264965472,
+      "precision": 0.14794572182434979,
+      "recall": 0.1454302181967888,
+      "f1": 0.14667718562501297,
+      "roc_auc": 0.49534024630276424,
+      "pr_auc": 0.1676268668784597
+    }
+  },
+  "metadata": {
+    "mode": "DEV (fast iteration)",
+    "attack_rate": 0.1715091863656054,
+    "total_samples": 944171,
+    "n_entities": 1000,
+    "window_minutes": 5,
+    "config": {
+      "max_entities": 1000,
+      "n_samples": 300,
+      "n_tune": 200,
+      "n_chains": 4,
+      "cores": 8
+    }
+  }
+}

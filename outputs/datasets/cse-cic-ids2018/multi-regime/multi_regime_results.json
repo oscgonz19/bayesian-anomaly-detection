@@ -1,0 +1,140 @@
+{
+  "regimes": [
+    {
+      "target_rate": 0.17,
+      "actual_rate": 0.16999980900924608,
+      "window_attack_rate": 0.29758269608145094,
+      "n_windows": 113639,
+      "metrics": {
+        "BSAD": {
+          "roc_auc": 0.5336922309114679,
+          "pr_auc": 0.320583805147439,
+          "fpr_at_recall_30": 0.3144670050761421,
+          "alerts_per_1k_windows": 15.454201462526068
+        },
+        "RandomForest": {
+          "roc_auc": 0.7335152572468449,
+          "pr_auc": 0.5819617698763968,
+          "fpr_at_recall_30": 0.06170752324598478,
+          "alerts_per_1k_windows": 134.17647058823528
+        },
+        "LogisticRegression": {
+          "roc_auc": 0.6724928099723517,
+          "pr_auc": 0.42393315984731844,
+          "fpr_at_recall_30": 0.15384615384615385,
+          "alerts_per_1k_windows": 198.29411764705884
+        },
+        "IsolationForest": {
+          "roc_auc": 0.5920675069611239,
+          "pr_auc": 0.3525728812965153,
+          "fpr_at_recall_30": 0.2375316990701606,
+          "alerts_per_1k_windows": 256.5294117647059
+        }
+      }
+    },
+    {
+      "target_rate": 0.05,
+      "actual_rate": 0.04999957493681739,
+      "window_attack_rate": 0.11387458317010482,
+      "n_windows": 104659,
+      "metrics": {
+        "BSAD": {
+          "roc_auc": 0.5394686931815342,
+          "pr_auc": 0.11708206426536139,
+          "fpr_at_recall_30": 0.3409140607916029,
+          "alerts_per_1k_windows": 16.527006755271888
+        },
+        "RandomForest": {
+          "roc_auc": 0.6847944691661126,
+          "pr_auc": 0.3064782468627635,
+          "fpr_at_recall_30": 0.22376093294460642,
+          "alerts_per_1k_windows": 232.2099805573558
+        },
+        "LogisticRegression": {
+          "roc_auc": 0.6318410822975807,
+          "pr_auc": 0.1788218168593169,
+          "fpr_at_recall_30": 0.2696793002915452,
+          "alerts_per_1k_windows": 273.03953337653917
+        },
+        "IsolationForest": {
+          "roc_auc": 0.6381323205974119,
+          "pr_auc": 0.1716696630168424,
+          "fpr_at_recall_30": 0.18950437317784258,
+          "alerts_per_1k_windows": 201.749837977965
+        }
+      }
+    },
+    {
+      "target_rate": 0.02,
+      "actual_rate": 0.019999974943654544,
+      "window_attack_rate": 0.05103343942787536,
+      "n_windows": 101796,
+      "metrics": {
+        "BSAD": {
+          "roc_auc": 0.5726960757000188,
+          "pr_auc": 0.09445221833083378,
+          "fpr_at_recall_30": 0.10197509660798626,
+          "alerts_per_1k_windows": 5.438327635663485
+        },
+        "RandomForest": {
+          "roc_auc": 0.738657883529806,
+          "pr_auc": 0.20824079338306156,
+          "fpr_at_recall_30": 0.03221188260558339,
+          "alerts_per_1k_windows": 46.54471544715447
+        },
+        "LogisticRegression": {
+          "roc_auc": 0.575944836584725,
+          "pr_auc": 0.0908335638716988,
+          "fpr_at_recall_30": 0.14531138153185397,
+          "alerts_per_1k_windows": 153.59078590785907
+        },
+        "IsolationForest": {
+          "roc_auc": 0.6666862988501581,
+          "pr_auc": 0.10424655987762489,
+          "fpr_at_recall_30": 0.12383679312813171,
+          "alerts_per_1k_windows": 133.26558265582656
+        }
+      }
+    },
+    {
+      "target_rate": 0.01,
+      "actual_rate": 0.009999519071352093,
+      "window_attack_rate": 0.027846117217570732,
+      "n_windows": 100804,
+      "metrics": {
+        "BSAD": {
+          "roc_auc": 0.6401196583513487,
+          "pr_auc": 0.10069968964831169,
+          "fpr_at_recall_30": 0.04154609342703597,
+          "alerts_per_1k_windows": 2.5385897385024405
+        },
+        "RandomForest": {
+          "roc_auc": 0.7057287753568745,
+          "pr_auc": 0.29306597281299346,
+          "fpr_at_recall_30": 0.01928374655647383,
+          "alerts_per_1k_windows": 29.528865295288654
+        },
+        "LogisticRegression": {
+          "roc_auc": 0.6921612822439269,
+          "pr_auc": 0.1169336721113984,
+          "fpr_at_recall_30": 0.03650137741046832,
+          "alerts_per_1k_windows": 46.118115461181155
+        },
+        "IsolationForest": {
+          "roc_auc": 0.751358627598297,
+          "pr_auc": 0.19329397304479887,
+          "fpr_at_recall_30": 0.022727272727272728,
+          "alerts_per_1k_windows": 32.846715328467155
+        }
+      }
+    }
+  ],
+  "config": {
+    "max_entities": 1000,
+    "n_samples": 300,
+    "n_tune": 200,
+    "n_chains": 4,
+    "cores": 8
+  },
+  "conclusion": "En CSE-CIC-IDS2018 con 17% de ataques, el problema se comporta como clasificación supervisada y los modelos clásicos dominan en ROC-AUC. BSAD no está diseñado para este régimen. Su valor emerge cuando los ataques son verdaderamente raros (<5%), donde la estabilidad del baseline, la reducción de falsos positivos y la cuantificación de incertidumbre son operativamente más relevantes que la separación promedio."
+}

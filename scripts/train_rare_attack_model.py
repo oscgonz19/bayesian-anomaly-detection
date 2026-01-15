@@ -15,9 +15,9 @@ from scipy import stats
 from scipy.special import logsumexp
 from sklearn.metrics import average_precision_score, roc_auc_score
 
-# Paths
+# Paths - organized by dataset/regime
 DATA_DIR = Path("data")
-OUTPUT_DIR = Path("outputs/rare_attack")
+OUTPUT_DIR = Path("outputs/datasets/unsw-nb15/rare-attack")
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 # Use 2% attack rate (good balance)

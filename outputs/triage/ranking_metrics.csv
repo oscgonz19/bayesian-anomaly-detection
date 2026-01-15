@@ -1,0 +1,17 @@
+metric,value
+Precision@10,0.7
+Recall@10,0.03932584269662921
+Precision@25,0.88
+Recall@25,0.12359550561797752
+Precision@50,0.86
+Recall@50,0.24157303370786518
+Precision@100,0.92
+Recall@100,0.5168539325842697
+FPR@Recall=0.1,0.1875
+Alerts/1k@Recall=0.1,107.21649484536083
+FPR@Recall=0.2,0.3125
+Alerts/1k@Recall=0.2,209.27835051546393
+FPR@Recall=0.3,0.4375
+Alerts/1k@Recall=0.3,311.340206185567
+FPR@Recall=0.5,0.5
+Alerts/1k@Recall=0.5,500.0

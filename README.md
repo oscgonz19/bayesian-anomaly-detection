@@ -455,15 +455,6 @@ It's a **probabilistic baseline model per entity** designed to:
 - Prioritize alerts with statistical evidence
 - Provide uncertainty quantification
 
-```
-The right framing for interviews:
-
-"BSAD doesn't replace classical methods.
- It works as a probabilistic normalization layer
- that learns what's normal FOR EACH ENTITY
- and only raises alerts with strong statistical evidence—
- critical in SOCs suffering from alert fatigue."
-```
 
 ### BSAD's Real Advantages (Not Captured by PR-AUC)
 

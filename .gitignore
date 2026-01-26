@@ -60,3 +60,6 @@ data/*.csv
 htmlcov/
 .tox/
 *:Zone.Identifier
+
+# Large datasets
+data/cse-cic-ids2018/

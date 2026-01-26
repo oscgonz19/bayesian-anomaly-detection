@@ -490,6 +490,141 @@ It's a **probabilistic baseline model per entity** designed to:
 
 ---
 
+## 🔬 Reproducible Benchmark
+
+### Fair Comparison Protocol
+
+BSAD is compared against **count-specific baselines** (fair comparison) and **generic detectors** (reference):
+
+```bash
+# Run full benchmark (3 attack rates: 1%, 2%, 5%)
+make benchmark
+
+# Quick benchmark (single rate, fewer samples)
+make benchmark-quick
+```
+
+### Benchmark Results (2% Attack Rate)
+
+| Model | PR-AUC | ROC-AUC | Recall@50 | Type |
+|-------|--------|---------|-----------|------|
+| **BSAD** | 0.562 | 0.943 | 1.000 | Bayesian Hierarchical |
+| NB_EmpBayes | 0.568 | 0.954 | 1.000 | Count-specific |
+| GLMM_NB | 0.567 | 0.952 | 1.000 | Count-specific |
+| NB_MLE | 0.466 | 0.856 | 0.800 | Count-specific |
+| GlobalNB | 0.420 | 0.947 | 1.000 | Count-specific |
+| ZScore | 0.283 | 0.834 | 0.800 | Non-probabilistic |
+| IsolationForest | varies | varies | varies | Generic |
+| LOF | varies | varies | varies | Generic |
+
+### Baselines Explained
+
+| Baseline | Description | Pooling |
+|----------|-------------|---------|
+| **NB_MLE** | Negative Binomial with MLE per entity | None (independent) |
+| **NB_EmpBayes** | NB with shrinkage toward global mean | Partial (simple) |
+| **GLMM_NB** | Generalized Linear Mixed Model | Partial (frequentist) |
+| **GlobalNB** | Single NB for all entities | Complete |
+| **ZScore** | Z-score per entity | None |
+
+**Key insight**: BSAD and NB_EmpBayes perform similarly because both use partial pooling. BSAD's advantage comes from full posterior uncertainty quantification.
+
+---
+
+## 🧪 Robustness Analysis
+
+### Run Robustness Tests
+
+```bash
+make robustness
+```
+
+### 1. Attack Rate Sensitivity
+
+Performance across different attack rates (rare-event regime):
+
+| Attack Rate | PR-AUC | ROC-AUC | Interpretation |
+|-------------|--------|---------|----------------|
+| 0.5% | 0.461 | 0.842 | Very rare - harder detection |
+| 1% | 0.593 | 0.885 | Rare - BSAD target regime |
+| 2% | 0.709 | 0.903 | Rare - optimal for BSAD |
+| 3% | 0.730 | 0.895 | Moderate-rare |
+| 5% | 0.808 | 0.896 | Transition zone |
+| 10% | 0.890 | 0.892 | Classification territory |
+
+<div align="center">
+
+![Attack Rate Sensitivity](outputs/robustness/attack_rate_sensitivity.png)
+*PR-AUC improves with higher attack rates; BSAD designed for <5% regime*
+
+</div>
+
+### 2. Temporal Drift
+
+Train on early data, test on later periods:
+
+| Period | PR-AUC | Drift |
+|--------|--------|-------|
+| Train (days 1-20) | 0.633 | baseline |
+| Test Period 1 (days 21-40) | 0.682 | +7.7% |
+| Test Period 2 (days 41-60) | 0.674 | +6.5% |
+
+**Finding**: No degradation over time. Model generalizes well to future data.
+
+<div align="center">
+
+![Temporal Drift](outputs/robustness/temporal_drift.png)
+*Stable performance across temporal periods*
+
+</div>
+
+### 3. Cold Start (Unseen Entities)
+
+Performance on entities not seen during training:
+
+| Entity Type | PR-AUC | Observations |
+|-------------|--------|--------------|
+| Known (in training) | 0.722 | 2,203 |
+| Cold (unseen) | 0.621 | 575 |
+
+**Finding**: ~14% drop for cold entities. Partial pooling helps by using population prior for new entities.
+
+<div align="center">
+
+![Cold Entity Analysis](outputs/robustness/cold_entity_analysis.png)
+*Performance degrades gracefully for unseen entities*
+
+</div>
+
+### 4. Ranking Stability
+
+Correlation of entity rankings across temporal windows:
+
+| Metric | Value | Interpretation |
+|--------|-------|----------------|
+| Mean Spearman | 0.509 | Moderate stability |
+| Mean Kendall | 0.364 | Moderate stability |
+
+**Finding**: Rankings are moderately stable. Some variation expected as entity behavior changes.
+
+<div align="center">
+
+![Ranking Stability](outputs/robustness/ranking_stability.png)
+*Moderate ranking stability across weeks*
+
+</div>
+
+### Robustness Summary
+
+| Test | Result | Implication |
+|------|--------|-------------|
+| Attack Rate Sensitivity | PR-AUC scales with signal | Works best at 1-5% rate |
+| Temporal Drift | No degradation | Safe for production deployment |
+| Cold Start | -14% for new entities | Acceptable with partial pooling |
+| Ranking Stability | Moderate (ρ=0.51) | Weekly retraining recommended |
+
+---
+
 ## 📊 Multi-Regime Validation: CSE-CIC-IDS2018
 
 ### Experimental Setup
@@ -739,6 +874,182 @@ See [`04_alert_prioritization.ipynb`](notebooks/04_alert_prioritization.ipynb) f
 ---
 
 ## 🔬 How BSAD Works
+
+### System Overview
+
+The complete BSAD pipeline from raw data to actionable alerts:
+
+```mermaid
+flowchart TB
+    subgraph DATA["📊 1. DATA EXPLORATION"]
+        direction TB
+        RAW[("🗄️ Raw Events<br/>timestamp, user_id,<br/>ip, endpoint, bytes")]
+        EDA["🔍 EDA Analysis"]
+        RAW --> EDA
+
+        subgraph CHECKS["Validation Checks"]
+            C1["✓ Count data?<br/>(integers)"]
+            C2["✓ Entity structure?<br/>(user_id, ip, service)"]
+            C3["✓ Overdispersion?<br/>(Var >> Mean)"]
+            C4["✓ Rare events?<br/>(<5% attacks)"]
+        end
+        EDA --> CHECKS
+    end
+
+    subgraph FEATURES["⚙️ 2. FEATURE ENGINEERING"]
+        direction TB
+        AGG["📐 Aggregation<br/>GROUP BY (entity, time_window)"]
+
+        subgraph VARS["Variables Extracted"]
+            V1["event_count<br/>(target variable y)"]
+            V2["entity_idx<br/>(entity identifier)"]
+            V3["unique_ips<br/>(auxiliary)"]
+            V4["has_attack<br/>(ground truth)"]
+        end
+        AGG --> VARS
+
+        SPLIT["✂️ Temporal Split<br/>Train: days 1-N<br/>Test: days N+1-M<br/>(NO random split!)"]
+        VARS --> SPLIT
+    end
+
+    subgraph MODEL["🧠 3. BAYESIAN MODEL"]
+        direction TB
+
+        subgraph HIERARCHY["Hierarchical Structure"]
+            direction TB
+            POP["🌐 POPULATION LEVEL<br/>μ ~ Exponential(0.1)<br/>α ~ HalfNormal(2.0)<br/><i>Global parameters</i>"]
+
+            ENT["👥 ENTITY LEVEL<br/>θ[e] ~ Gamma(μ·α, α)<br/><i>Rate per entity</i><br/>E[θ] = μ"]
+
+            OBS["📈 OBSERVATION LEVEL<br/>φ ~ HalfNormal(2.0)<br/>y[e,t] ~ NegBinomial(θ[e], φ)<br/><i>Actual counts</i>"]
+
+            POP -->|"Partial<br/>Pooling"| ENT
+            ENT -->|"Generates"| OBS
+        end
+
+        subgraph POOLING["🎯 Partial Pooling Effect"]
+            direction LR
+            SPARSE["Few observations<br/>→ θ shrinks to μ"]
+            DENSE["Many observations<br/>→ θ individualized"]
+        end
+
+        MCMC["⚡ MCMC Sampling<br/>NUTS algorithm<br/>2000 samples × 4 chains"]
+
+        HIERARCHY --> MCMC
+        POOLING -.-> ENT
+    end
+
+    subgraph INFERENCE["🎲 4. POSTERIOR INFERENCE"]
+        direction TB
+        TRACE[("💾 Trace<br/>(InferenceData)<br/>θ[e]^(s), φ^(s)<br/>s = 1..S samples")]
+
+        subgraph DIAG["MCMC Diagnostics"]
+            D1["R-hat < 1.05"]
+            D2["ESS > 400"]
+            D3["Divergences = 0"]
+        end
+
+        TRACE --> DIAG
+    end
+
+    subgraph SCORING["📊 5. ANOMALY SCORING"]
+        direction TB
+
+        subgraph CALC["Score Calculation"]
+            direction TB
+            S1["For each observation y[i]:"]
+            S2["P(y|θ^(s), φ^(s))<br/>for each sample s"]
+            S3["P(y|posterior) =<br/>mean over samples"]
+            S4["score = -log P(y|posterior)"]
+            S1 --> S2 --> S3 --> S4
+        end
+
+        subgraph UNCERT["Uncertainty Quantification"]
+            U1["score_mean"]
+            U2["score_std"]
+            U3["CI_lower, CI_upper<br/>(90% credible interval)"]
+        end
+
+        CALC --> UNCERT
+
+        INTERP["📖 Interpretation<br/>HIGH score = LOW probability<br/>= ANOMALOUS"]
+    end
+
+    subgraph TRIAGE["🚨 6. TRIAGE & RISK SCORING"]
+        direction TB
+
+        subgraph RISK["Risk Score Formula"]
+            direction TB
+            R1["risk = 0.5 × normalize(anomaly_score)"]
+            R2["+ 0.3 × confidence(1/std)"]
+            R3["+ 0.2 × novelty(entity_history)"]
+            R1 --- R2 --- R3
+        end
+
+        subgraph CALIBRATION["Alert Calibration"]
+            CAL1["fixed_alerts:<br/>'I can handle 50/day'"]
+            CAL2["fixed_recall:<br/>'Catch 30% of attacks'"]
+            CAL3["fixed_fpr:<br/>'Max 5% false positives'"]
+        end
+
+        RISK --> CALIBRATION
+
+        subgraph ENRICH["Entity Enrichment"]
+            E1["Baseline: 12.3 ± 3.1"]
+            E2["Current: 47 events"]
+            E3["Deviation: 4.2σ"]
+            E4["Prior alerts: 0"]
+        end
+
+        CALIBRATION --> ENRICH
+    end
+
+    subgraph OUTPUT["✅ 7. OUTPUT"]
+        direction TB
+        ALERTS["🚨 Prioritized Alerts<br/>Top-K ranked by risk"]
+        METRICS["📈 Metrics<br/>PR-AUC, Precision@K<br/>Recall@K, FPR@Recall"]
+        DASHBOARD["📊 Dashboard<br/>Alert budget curves<br/>Entity baselines"]
+
+        ALERTS --- METRICS --- DASHBOARD
+    end
+
+    %% Main Flow Connections
+    DATA ==>|"modeling_df"| FEATURES
+    FEATURES ==>|"y, entity_idx<br/>n_entities"| MODEL
+    MODEL ==>|"trace.nc"| INFERENCE
+    INFERENCE ==>|"posterior<br/>samples"| SCORING
+    SCORING ==>|"scored_df"| TRIAGE
+    TRIAGE ==>|"enriched<br/>alerts"| OUTPUT
+
+    %% Styling
+    classDef dataStyle fill:#e1f5fe,stroke:#01579b
+    classDef featureStyle fill:#f3e5f5,stroke:#4a148c
+    classDef modelStyle fill:#fff3e0,stroke:#e65100
+    classDef inferStyle fill:#e8f5e9,stroke:#1b5e20
+    classDef scoreStyle fill:#fce4ec,stroke:#880e4f
+    classDef triageStyle fill:#fff8e1,stroke:#ff6f00
+    classDef outputStyle fill:#e0f2f1,stroke:#004d40
+
+    class DATA dataStyle
+    class FEATURES featureStyle
+    class MODEL modelStyle
+    class INFERENCE inferStyle
+    class SCORING scoreStyle
+    class TRIAGE triageStyle
+    class OUTPUT outputStyle
+```
+
+### Data Flow Summary
+
+| Stage | Input | Process | Output | Key Decision |
+|-------|-------|---------|--------|--------------|
+| **1. EDA** | Raw events | Validate assumptions | Confirmed fit for BSAD | Is this count data with entities? |
+| **2. Features** | Events table | Aggregate by entity×window | `y`, `entity_idx` | Temporal split (not random!) |
+| **3. Model** | Arrays | Hierarchical NegBin | Posterior distributions | Partial pooling strength (α) |
+| **4. Inference** | Model | MCMC (NUTS) | Trace with samples | Convergence check (R-hat) |
+| **5. Scoring** | Trace + data | -log P(y\|posterior) | Anomaly scores + uncertainty | Score threshold |
+| **6. Triage** | Scores | Risk weighting + calibration | Prioritized alerts | Alert budget |
+| **7. Output** | Alerts | Enrichment + ranking | Analyst-ready tickets | Investigation priority |
 
 ### The Model
 

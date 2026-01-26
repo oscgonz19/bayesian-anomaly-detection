@@ -1,5 +1,6 @@
 .PHONY: install install-dev demo clean clean-figures test lint format help env env-remove streamlit \
-       viz-explore viz-features viz-model viz-results viz-eval viz-all viz-report
+       viz-explore viz-features viz-model viz-results viz-eval viz-all viz-report \
+       benchmark benchmark-quick robustness
 
 # Default target
 help:
@@ -17,6 +18,11 @@ help:
 	@echo "  make format       Format code"
 	@echo "  make streamlit    Run Streamlit dashboard"
 	@echo "  make clean        Remove generated files"
+	@echo ""
+	@echo "Benchmark (reproducible comparison):"
+	@echo "  make benchmark       Full benchmark vs baselines (NB, GLMM, IF, LOF)"
+	@echo "  make benchmark-quick Quick benchmark (fewer samples, single rate)"
+	@echo "  make robustness      Robustness analysis (drift, cold-start, rates)"
 	@echo ""
 	@echo "Visualization:"
 	@echo "  make viz-explore  Data exploration visualizations"
@@ -101,6 +107,16 @@ viz-all:
 
 viz-report:
 	python dataviz/06_full_report.py --data data/events.parquet --model outputs/model.nc --scores outputs/scores.parquet --output outputs/figures --pdf
+
+# Benchmark targets
+benchmark:
+	python scripts/benchmark.py --output outputs/benchmark --attack-rates 0.01 0.02 0.05 --seed 42
+
+benchmark-quick:
+	python scripts/benchmark.py --output outputs/benchmark --quick --seed 42
+
+robustness:
+	python scripts/robustness_analysis.py --output outputs/robustness --seed 42
 
 # Cleanup
 clean:

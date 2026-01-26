@@ -875,6 +875,41 @@ Ver [`04_alert_prioritization.ipynb`](notebooks/04_alert_prioritization.ipynb) p
 
 ---
 
+## 📚 EDA Pipeline Explicado
+
+Antes de entrar al modelo, entiende los datos con visualizaciones pedagógicas:
+
+```bash
+# Generar todas las visualizaciones EDA
+python scripts/eda_pipeline_explainer.py
+```
+
+### 1. Vista General de Datos Crudos
+![Vista Datos Crudos](outputs/eda_explainer/01_raw_data_overview.png)
+*Entendiendo el input: dimensiones, distribuciones y estadísticas básicas*
+
+### 2. Por Qué Importa la Estructura de Entidades
+![Por Qué Entidades](outputs/eda_explainer/02_why_entity_structure.png)
+*El mismo valor (50 eventos) significa cosas diferentes para diferentes entidades*
+
+### 3. El Problema de Overdispersion
+![Overdispersion](outputs/eda_explainer/03_overdispersion.png)
+*Por qué Poisson falla: Varianza >> Media en datos de seguridad*
+
+### 4. Efecto del Partial Pooling
+![Partial Pooling](outputs/eda_explainer/04_partial_pooling.png)
+*Cómo BSAD balancea datos individuales vs prior poblacional*
+
+### 5. Scoring Explicado
+![Scoring Explicado](outputs/eda_explainer/05_scoring_explained.png)
+*Paso a paso: cómo se calculan los anomaly scores*
+
+### 6. Resumen del Pipeline Completo
+![Resumen Pipeline](outputs/eda_explainer/06_full_pipeline_summary.png)
+*Vista de extremo a extremo: desde datos crudos hasta alertas priorizadas*
+
+---
+
 ## 🔬 Cómo Funciona BSAD
 
 ### Visión General del Sistema

@@ -873,6 +873,41 @@ See [`04_alert_prioritization.ipynb`](notebooks/04_alert_prioritization.ipynb) f
 
 ---
 
+## 📚 EDA Pipeline Explainer
+
+Before diving into the model, understand the data through pedagogical visualizations:
+
+```bash
+# Generate all EDA visualizations
+python scripts/eda_pipeline_explainer.py
+```
+
+### 1. Raw Data Overview
+![Raw Data Overview](outputs/eda_explainer/01_raw_data_overview.png)
+*Understanding the input: dimensions, distributions, and basic statistics*
+
+### 2. Why Entity Structure Matters
+![Why Entity Structure](outputs/eda_explainer/02_why_entity_structure.png)
+*The same value (50 events) means different things for different entities*
+
+### 3. The Overdispersion Problem
+![Overdispersion](outputs/eda_explainer/03_overdispersion.png)
+*Why Poisson fails: Variance >> Mean in security data*
+
+### 4. Partial Pooling Effect
+![Partial Pooling](outputs/eda_explainer/04_partial_pooling.png)
+*How BSAD balances individual data vs population prior*
+
+### 5. Scoring Explained
+![Scoring Explained](outputs/eda_explainer/05_scoring_explained.png)
+*Step-by-step: how anomaly scores are calculated*
+
+### 6. Full Pipeline Summary
+![Pipeline Summary](outputs/eda_explainer/06_full_pipeline_summary.png)
+*End-to-end view: from raw data to prioritized alerts*
+
+---
+
 ## 🔬 How BSAD Works
 
 ### System Overview

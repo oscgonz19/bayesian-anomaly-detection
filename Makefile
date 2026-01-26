@@ -1,6 +1,6 @@
 .PHONY: install install-dev demo clean clean-figures test lint format help env env-remove streamlit \
        viz-explore viz-features viz-model viz-results viz-eval viz-all viz-report \
-       benchmark benchmark-quick robustness
+       benchmark benchmark-quick robustness eda
 
 # Default target
 help:
@@ -117,6 +117,10 @@ benchmark-quick:
 
 robustness:
 	python scripts/robustness_analysis.py --output outputs/robustness --seed 42
+
+# EDA Pipeline Explainer (pedagogical visualizations)
+eda:
+	python scripts/eda_pipeline_explainer.py
 
 # Cleanup
 clean:

@@ -1051,6 +1051,246 @@ flowchart TB
 | **6. Triage** | Scores | Risk weighting + calibration | Prioritized alerts | Alert budget |
 | **7. Output** | Alerts | Enrichment + ranking | Analyst-ready tickets | Investigation priority |
 
+### Detailed Data Transformation: Row by Row
+
+This diagram shows exactly how data transforms at each stage, with actual row/column examples:
+
+```mermaid
+flowchart TB
+    subgraph RAW["📥 RAW EVENTS (N=100,000 rows)"]
+        direction TB
+        RAW_TABLE["
+        | timestamp           | user_id | endpoint    | bytes  | status |
+        |---------------------|---------|-------------|--------|--------|
+        | 2024-01-01 08:00:01 | user_42 | /api/login  | 1,204  | 200    |
+        | 2024-01-01 08:00:02 | user_42 | /api/login  | 1,198  | 401    |
+        | 2024-01-01 08:00:03 | user_17 | /api/data   | 45,302 | 200    |
+        | ...                 | ...     | ...         | ...    | ...    |
+        "]
+        RAW_COLS["Columns: timestamp, user_id, endpoint, bytes, status, ..."]
+    end
+
+    subgraph AGG["⚙️ AGGREGATION (N=2,800 rows)"]
+        direction TB
+        AGG_PROCESS["
+        GROUP BY (user_id, date)
+        COUNT(*) → event_count
+        "]
+        AGG_TABLE["
+        | user_id | date       | event_count | unique_endpoints | has_attack |
+        |---------|------------|-------------|------------------|------------|
+        | user_01 | 2024-01-01 | 45          | 3                | 0          |
+        | user_01 | 2024-01-02 | 52          | 4                | 0          |
+        | user_01 | 2024-01-03 | 127         | 12               | 1 ⚠️       |
+        | user_02 | 2024-01-01 | 12          | 2                | 0          |
+        | user_42 | 2024-01-01 | 89          | 5                | 0          |
+        | ...     | ...        | ...         | ...              | ...        |
+        "]
+        AGG_DIMS["100 entities × 28 days = 2,800 observations"]
+    end
+
+    subgraph ARRAYS["🔢 MODEL ARRAYS"]
+        direction TB
+        ARRAY_PROCESS["
+        Extract for PyMC:
+        • y = event_count values
+        • entity_idx = integer encoding
+        "]
+        ARRAY_DATA["
+        y = [45, 52, 127, 12, 89, ...]           # shape: (2800,)
+        entity_idx = [0, 0, 0, 1, 41, ...]       # shape: (2800,)
+        n_entities = 100
+
+        Mapping:
+        user_01 → 0
+        user_02 → 1
+        ...
+        user_42 → 41
+        "]
+    end
+
+    subgraph MODEL["🧠 HIERARCHICAL MODEL"]
+        direction TB
+        MODEL_STRUCT["
+        ┌─────────────────────────────────────┐
+        │ POPULATION (shared)                 │
+        │   μ = 35.2  (global mean rate)      │
+        │   α = 2.1   (pooling strength)      │
+        └─────────────────────────────────────┘
+                        │
+                        ▼
+        ┌─────────────────────────────────────┐
+        │ ENTITY RATES θ[e]                   │
+        │   θ[0] = 48.3  (user_01: active)    │
+        │   θ[1] = 14.2  (user_02: quiet)     │
+        │   θ[41] = 91.7 (user_42: very active)│
+        │   ...                               │
+        │   θ[99] = 22.1 (user_100)           │
+        └─────────────────────────────────────┘
+                        │
+                        ▼
+        ┌─────────────────────────────────────┐
+        │ OBSERVATIONS y ~ NegBin(θ[e], φ)    │
+        │   φ = 3.4 (overdispersion)          │
+        └─────────────────────────────────────┘
+        "]
+    end
+
+    subgraph POSTERIOR["🎲 POSTERIOR SAMPLES (S=2000)"]
+        direction TB
+        POST_TABLE["
+        | sample | μ     | α    | θ[0]  | θ[1]  | θ[41] | φ    |
+        |--------|-------|------|-------|-------|-------|------|
+        | s=1    | 34.8  | 2.0  | 47.9  | 14.5  | 90.2  | 3.2  |
+        | s=2    | 35.4  | 2.2  | 48.7  | 13.9  | 92.1  | 3.5  |
+        | s=3    | 35.1  | 2.1  | 48.1  | 14.3  | 91.8  | 3.4  |
+        | ...    | ...   | ...  | ...   | ...   | ...   | ...  |
+        | s=2000 | 35.6  | 2.0  | 48.5  | 14.1  | 91.4  | 3.3  |
+        "]
+        POST_DIMS["Shape: 2000 samples × (3 + n_entities) parameters"]
+    end
+
+    subgraph SCORING["📊 ANOMALY SCORING"]
+        direction TB
+        SCORE_CALC["
+        For user_01, day 3 (y=127):
+
+        P(127 | θ[0]=48.3, φ=3.4) = 0.00002  ← Very unlikely!
+
+        score = -log(0.00002) = 10.8 🚨
+        "]
+        SCORE_TABLE["
+        | user_id | date       | event_count | anomaly_score | score_std | rank |
+        |---------|------------|-------------|---------------|-----------|------|
+        | user_01 | 2024-01-03 | 127         | 10.8 🚨       | 0.9       | 1    |
+        | user_77 | 2024-01-15 | 203         | 9.2           | 1.1       | 2    |
+        | user_42 | 2024-01-08 | 312         | 8.7           | 0.7       | 3    |
+        | ...     | ...        | ...         | ...           | ...       | ...  |
+        | user_02 | 2024-01-01 | 12          | 1.2           | 0.3       | 2798 |
+        "]
+    end
+
+    subgraph TRIAGE["🚨 RISK TRIAGE"]
+        direction TB
+        RISK_CALC["
+        risk = 0.5 × norm(score) + 0.3 × (1/std) + 0.2 × novelty
+
+        user_01: 0.5×0.95 + 0.3×0.85 + 0.2×0.1 = 0.75
+        "]
+        FINAL_TABLE["
+        | rank | user_id | event_count | baseline | deviation | risk_score | action     |
+        |------|---------|-------------|----------|-----------|------------|------------|
+        | 1    | user_01 | 127         | 48±12    | +6.6σ 🔴  | 0.75       | INVESTIGATE|
+        | 2    | user_77 | 203         | 85±20    | +5.9σ 🔴  | 0.71       | INVESTIGATE|
+        | 3    | user_42 | 312         | 92±25    | +8.8σ 🔴  | 0.68       | INVESTIGATE|
+        | ...  | ...     | ...         | ...      | ...       | ...        | ...        |
+        | 50   | user_33 | 67          | 45±15    | +1.5σ 🟡  | 0.32       | MONITOR    |
+        "]
+    end
+
+    RAW -->|"100K events"| AGG
+    AGG -->|"2.8K obs"| ARRAYS
+    ARRAYS -->|"y, entity_idx"| MODEL
+    MODEL -->|"MCMC 2K samples"| POSTERIOR
+    POSTERIOR -->|"θ[e], φ samples"| SCORING
+    SCORING -->|"scored_df"| TRIAGE
+
+    style RAW fill:#e3f2fd
+    style AGG fill:#f3e5f5
+    style ARRAYS fill:#fff3e0
+    style MODEL fill:#fff8e1
+    style POSTERIOR fill:#e8f5e9
+    style SCORING fill:#fce4ec
+    style TRIAGE fill:#ffebee
+```
+
+### Entity Processing: The Partial Pooling Effect
+
+This diagram shows how different entities are treated based on their data volume:
+
+```mermaid
+flowchart LR
+    subgraph INPUT["Raw Observations"]
+        E1["user_01<br/>500 events<br/>(high activity)"]
+        E2["user_02<br/>15 events<br/>(sparse)"]
+        E3["user_03<br/>3 events<br/>(very sparse)"]
+    end
+
+    subgraph POOLING["Partial Pooling Effect"]
+        direction TB
+        POP["Population Prior<br/>μ = 35, α = 2"]
+
+        subgraph SHRINK["Shrinkage Strength"]
+            S1["Weak shrinkage<br/>θ ≈ MLE"]
+            S2["Moderate shrinkage<br/>θ between MLE and μ"]
+            S3["Strong shrinkage<br/>θ ≈ μ"]
+        end
+    end
+
+    subgraph OUTPUT["Entity Rates θ[e]"]
+        O1["θ[1] = 52.3<br/>Based mostly on<br/>OWN data"]
+        O2["θ[2] = 28.4<br/>Pulled toward μ<br/>(regularized)"]
+        O3["θ[3] = 33.1<br/>Almost = μ<br/>(borrowed strength)"]
+    end
+
+    E1 --> S1 --> O1
+    E2 --> S2 --> O2
+    E3 --> S3 --> O3
+    POP -.->|"Prior influence"| S1
+    POP -.->|"Prior influence"| S2
+    POP -.->|"Prior influence"| S3
+
+    style E1 fill:#c8e6c9
+    style E2 fill:#fff9c4
+    style E3 fill:#ffcdd2
+    style O1 fill:#c8e6c9
+    style O2 fill:#fff9c4
+    style O3 fill:#ffcdd2
+```
+
+### Scoring Calculation: Step by Step
+
+```mermaid
+flowchart TB
+    subgraph OBSERVATION["Single Observation"]
+        OBS["user_01, day 3<br/>y = 127 events"]
+    end
+
+    subgraph SAMPLES["Posterior Samples (S=2000)"]
+        direction LR
+        S1["s=1: θ=47.9, φ=3.2"]
+        S2["s=2: θ=48.7, φ=3.5"]
+        S3["..."]
+        S4["s=2000: θ=48.5, φ=3.3"]
+    end
+
+    subgraph PROBS["Probability Calculations"]
+        direction LR
+        P1["P(127|s=1) = 0.000018"]
+        P2["P(127|s=2) = 0.000022"]
+        P3["..."]
+        P4["P(127|s=2000) = 0.000020"]
+    end
+
+    subgraph AGGREGATE["Aggregate"]
+        AVG["P(y|posterior) = mean(P)<br/>= 0.000020"]
+        SCORE["score = -log(0.000020)<br/>= 10.8"]
+        STD["std = std(scores)<br/>= 0.9"]
+    end
+
+    subgraph INTERPRET["Interpretation"]
+        HIGH["HIGH score (10.8)<br/>= LOW probability<br/>= ANOMALOUS 🚨"]
+    end
+
+    OBS --> SAMPLES
+    SAMPLES --> PROBS
+    PROBS --> AVG --> SCORE --> HIGH
+    PROBS --> STD
+
+    style OBS fill:#ffcdd2
+    style HIGH fill:#ffcdd2
+```
+
 ### The Model
 
 <div align="center">

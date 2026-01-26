@@ -1053,6 +1053,169 @@ flowchart TB
 | **6. Triage** | Scores | Ponderación + calibración | Alertas priorizadas | Presupuesto de alertas |
 | **7. Salida** | Alertas | Enriquecimiento + ranking | Tickets para analistas | Prioridad investigación |
 
+### Transformación de Datos Detallada: Fila por Fila
+
+Este diagrama muestra exactamente cómo se transforman los datos en cada etapa:
+
+```mermaid
+flowchart TB
+    subgraph RAW["📥 EVENTOS CRUDOS (N=100,000 filas)"]
+        direction TB
+        RAW_TABLE["
+        | timestamp           | user_id | endpoint    | bytes  | status |
+        |---------------------|---------|-------------|--------|--------|
+        | 2024-01-01 08:00:01 | user_42 | /api/login  | 1,204  | 200    |
+        | 2024-01-01 08:00:02 | user_42 | /api/login  | 1,198  | 401    |
+        | 2024-01-01 08:00:03 | user_17 | /api/data   | 45,302 | 200    |
+        | ...                 | ...     | ...         | ...    | ...    |
+        "]
+    end
+
+    subgraph AGG["⚙️ AGREGACIÓN (N=2,800 filas)"]
+        direction TB
+        AGG_TABLE["
+        | user_id | date       | event_count | unique_endpoints | has_attack |
+        |---------|------------|-------------|------------------|------------|
+        | user_01 | 2024-01-01 | 45          | 3                | 0          |
+        | user_01 | 2024-01-02 | 52          | 4                | 0          |
+        | user_01 | 2024-01-03 | 127         | 12               | 1 ⚠️       |
+        | user_02 | 2024-01-01 | 12          | 2                | 0          |
+        | ...     | ...        | ...         | ...              | ...        |
+        "]
+        AGG_DIMS["100 entidades × 28 días = 2,800 observaciones"]
+    end
+
+    subgraph ARRAYS["🔢 ARRAYS PARA MODELO"]
+        direction TB
+        ARRAY_DATA["
+        y = [45, 52, 127, 12, 89, ...]           # shape: (2800,)
+        entity_idx = [0, 0, 0, 1, 41, ...]       # shape: (2800,)
+        n_entities = 100
+
+        Mapeo: user_01→0, user_02→1, ..., user_42→41
+        "]
+    end
+
+    subgraph MODEL["🧠 MODELO JERÁRQUICO"]
+        direction TB
+        MODEL_STRUCT["
+        POBLACIÓN: μ=35.2, α=2.1
+              │
+              ▼
+        ENTIDADES: θ[0]=48.3, θ[1]=14.2, θ[41]=91.7, ...
+              │
+              ▼
+        OBSERVACIONES: y ~ NegBin(θ[e], φ=3.4)
+        "]
+    end
+
+    subgraph POSTERIOR["🎲 MUESTRAS POSTERIORES (S=2000)"]
+        POST_TABLE["
+        | muestra | μ    | θ[0] | θ[1] | θ[41] | φ   |
+        |---------|------|------|------|-------|-----|
+        | s=1     | 34.8 | 47.9 | 14.5 | 90.2  | 3.2 |
+        | s=2     | 35.4 | 48.7 | 13.9 | 92.1  | 3.5 |
+        | ...     | ...  | ...  | ...  | ...   | ... |
+        "]
+    end
+
+    subgraph SCORING["📊 SCORING DE ANOMALÍAS"]
+        SCORE_TABLE["
+        | user_id | date       | count | score | rank |
+        |---------|------------|-------|-------|------|
+        | user_01 | 2024-01-03 | 127   | 10.8🚨| 1    |
+        | user_77 | 2024-01-15 | 203   | 9.2   | 2    |
+        | ...     | ...        | ...   | ...   | ...  |
+        "]
+    end
+
+    subgraph TRIAGE["🚨 TRIAGE DE RIESGO"]
+        FINAL_TABLE["
+        | rank | user   | count | baseline | desviación | acción      |
+        |------|--------|-------|----------|------------|-------------|
+        | 1    | user_01| 127   | 48±12    | +6.6σ 🔴   | INVESTIGAR  |
+        | 2    | user_77| 203   | 85±20    | +5.9σ 🔴   | INVESTIGAR  |
+        | 50   | user_33| 67    | 45±15    | +1.5σ 🟡   | MONITOREAR  |
+        "]
+    end
+
+    RAW -->|"100K eventos"| AGG
+    AGG -->|"2.8K obs"| ARRAYS
+    ARRAYS -->|"y, entity_idx"| MODEL
+    MODEL -->|"MCMC 2K muestras"| POSTERIOR
+    POSTERIOR -->|"θ[e], φ"| SCORING
+    SCORING -->|"scored_df"| TRIAGE
+```
+
+### Procesamiento de Entidades: El Efecto del Partial Pooling
+
+```mermaid
+flowchart LR
+    subgraph INPUT["Observaciones"]
+        E1["user_01<br/>500 eventos<br/>(alta actividad)"]
+        E2["user_02<br/>15 eventos<br/>(sparse)"]
+        E3["user_03<br/>3 eventos<br/>(muy sparse)"]
+    end
+
+    subgraph POOLING["Partial Pooling"]
+        direction TB
+        POP["Prior Poblacional<br/>μ = 35, α = 2"]
+
+        subgraph SHRINK["Fuerza de Shrinkage"]
+            S1["Shrinkage débil<br/>θ ≈ MLE"]
+            S2["Shrinkage moderado<br/>θ entre MLE y μ"]
+            S3["Shrinkage fuerte<br/>θ ≈ μ"]
+        end
+    end
+
+    subgraph OUTPUT["Tasas θ[e]"]
+        O1["θ[1] = 52.3<br/>Basado en sus<br/>PROPIOS datos"]
+        O2["θ[2] = 28.4<br/>Jalado hacia μ<br/>(regularizado)"]
+        O3["θ[3] = 33.1<br/>Casi = μ<br/>(fuerza prestada)"]
+    end
+
+    E1 --> S1 --> O1
+    E2 --> S2 --> O2
+    E3 --> S3 --> O3
+    POP -.->|"Influencia prior"| S1
+    POP -.->|"Influencia prior"| S2
+    POP -.->|"Influencia prior"| S3
+
+    style E1 fill:#c8e6c9
+    style E2 fill:#fff9c4
+    style E3 fill:#ffcdd2
+```
+
+### Cálculo del Score: Paso a Paso
+
+```mermaid
+flowchart TB
+    subgraph OBS["Observación"]
+        O["user_01, día 3<br/>y = 127 eventos"]
+    end
+
+    subgraph SAMPLES["Muestras Posteriores"]
+        S["s=1: θ=47.9, φ=3.2<br/>s=2: θ=48.7, φ=3.5<br/>...<br/>s=2000: θ=48.5, φ=3.3"]
+    end
+
+    subgraph PROBS["Probabilidades"]
+        P["P(127|s=1) = 0.000018<br/>P(127|s=2) = 0.000022<br/>...<br/>P(127|s=2000) = 0.000020"]
+    end
+
+    subgraph AGG["Agregación"]
+        A["P(y|post) = mean = 0.000020<br/>score = -log(0.000020) = 10.8<br/>std = 0.9"]
+    end
+
+    subgraph INT["Interpretación"]
+        I["Score ALTO = Prob BAJA<br/>= ANÓMALO 🚨"]
+    end
+
+    O --> SAMPLES --> PROBS --> AGG --> INT
+
+    style O fill:#ffcdd2
+    style I fill:#ffcdd2
+```
+
 ### El Modelo: Binomial Negativo Jerárquico
 
 <div align="center">

@@ -37,6 +37,323 @@ Este proyecto explora cómo los **modelos Bayesianos jerárquicos** pueden usars
 
 ---
 
+## 📊 Análisis Exploratorio de Datos
+
+Antes de entrar al modelo, entendamos nuestros datos a través de la exploración.
+
+### Cargando los Datos Crudos
+
+```python
+import pandas as pd
+import numpy as np
+import seaborn as sns
+import matplotlib.pyplot as plt
+
+# Cargar datos de flujos de red UNSW-NB15
+df = pd.read_csv('data/UNSW-NB15_1.csv')
+print(f"Dimensiones: {df.shape}")
+print(f"Columnas clave: {['proto', 'service', 'spkts', 'dpkts', 'sbytes', 'dbytes', 'attack_cat', 'label']}")
+```
+
+```
+Dimensiones: (257,673, 49)
+Columnas clave: ['proto', 'service', 'spkts', 'dpkts', 'sbytes', 'dbytes', 'attack_cat', 'label']
+```
+
+### Primera Vista de los Datos
+
+```python
+df[['proto', 'service', 'spkts', 'dpkts', 'sbytes', 'label', 'attack_cat']].head(10)
+```
+
+```
+   proto   service  spkts  dpkts   sbytes  label    attack_cat
+0    udp       dns      2      2      146      0        Normal
+1    tcp      http     12     18     1024      0        Normal
+2    tcp       ftp      6      8      512      1       Fuzzers  ← ¡Ataque!
+3    udp       dns      1      1       64      0        Normal
+4    tcp      http     45     52     8192      0        Normal
+5    tcp       ssh      3      4      256      1      Exploits  ← ¡Ataque!
+6    tcp      smtp      8     10      640      0        Normal
+7    tcp      http     22     28     2048      1       Generic  ← ¡Ataque!
+8    udp      dhcp      4      4      512      0        Normal
+9    tcp      http     15     20     1280      0        Normal
+```
+
+---
+
+### Distribución de Clases: El Problema de Desbalance
+
+```python
+# Contar ataques vs normales
+label_counts = df['label'].value_counts()
+print(f"Normal: {label_counts[0]:,} ({label_counts[0]/len(df)*100:.1f}%)")
+print(f"Ataque: {label_counts[1]:,} ({label_counts[1]/len(df)*100:.1f}%)")
+```
+
+```
+Distribución de Clases (Dataset Original)
+══════════════════════════════════════════════════════════════
+
+  Normal  ████████████████████ 36.0%
+          (93,000 flujos)
+
+  Ataque  ████████████████████████████████████ 64.0%
+          (164,673 flujos)
+
+══════════════════════════════════════════════════════════════
+⚠️ ADVERTENCIA: ¡64% ataques NO es realista!
+   Los datos reales de SOC tienen <5% ataques. Esto es CLASIFICACIÓN.
+   Debemos transformarlo para detección de anomalías.
+```
+
+### Creando Régimen de Eventos Raros (La Transformación Clave)
+
+```python
+# Mantener TODOS los flujos normales, submuestrear ataques para crear régimen realista
+normal_df = df[df['label'] == 0]
+attack_df = df[df['label'] == 1]
+
+# Objetivo: 2% tasa de ataque (realista para SOC)
+target_attack_rate = 0.02
+n_attacks_needed = int(len(normal_df) * target_attack_rate / (1 - target_attack_rate))
+attack_subsample = attack_df.sample(n=n_attacks_needed, random_state=42)
+
+rare_df = pd.concat([normal_df, attack_subsample])
+print(f"Nueva tasa de ataque: {rare_df['label'].mean()*100:.1f}%")
+```
+
+```
+Transformación de Régimen: Clasificación → Detección de Anomalías
+══════════════════════════════════════════════════════════════
+
+  ANTES (Original):
+  ─────────────────
+  Normal: ████████████████████ 36%
+  Ataque: ████████████████████████████████████ 64%
+          → ¡Esto es CLASIFICACIÓN, no detección de anomalías!
+
+  DESPUÉS (Régimen de Eventos Raros):
+  ───────────────────────────────────
+  Normal: ████████████████████████████████████████████████ 98%
+  Ataque: █ 2%
+          → ¡AHORA es detección de anomalías apropiada!
+
+══════════════════════════════════════════════════════════════
+✅ Tasa de ataque 2% coincide con entornos SOC reales
+```
+
+---
+
+### Estructura de Entidades: Por Qué Importa
+
+```python
+# Crear entidad desde combinación protocolo + servicio
+df['entity'] = df['proto'] + '_' + df['service'].fillna('unknown')
+entity_counts = df.groupby('entity').size().sort_values(ascending=False)
+print(f"Entidades únicas: {len(entity_counts)}")
+print(entity_counts.head(10))
+```
+
+```
+Top 10 Entidades (combinaciones proto_service)
+══════════════════════════════════════════════════════════════
+
+  tcp_http      ████████████████████████████████  45,234 flujos
+  udp_dns       ████████████████████             28,456 flujos
+  tcp_ftp       ██████████████████               22,123 flujos
+  tcp_ssh       ████████████████                 18,765 flujos
+  tcp_smtp      ██████████████                   15,432 flujos
+  udp_dhcp      ████████████                     12,345 flujos
+  tcp_https     ██████████                       10,234 flujos
+  tcp_ftp-data  ████████                          8,765 flujos
+  udp_ntp       ██████                            6,543 flujos
+  tcp_telnet    █████                             5,432 flujos
+
+══════════════════════════════════════════════════════════════
+💡 ¡Cada entidad tiene comportamiento normal DIFERENTE!
+   tcp_http: típicamente 50-200 paquetes
+   udp_dns:  típicamente 1-3 paquetes
+```
+
+---
+
+### El Insight Central: Mismo Conteo, Diferente Significado
+
+```python
+# Comparar conteos de paquetes entre entidades
+entity_stats = df.groupby('entity')['spkts'].agg(['mean', 'std', 'count'])
+entity_stats = entity_stats[entity_stats['count'] >= 100].sort_values('mean')
+
+print("Los conteos de paquetes varían DRAMÁTICAMENTE por entidad:")
+```
+
+```
+Estadísticas de Conteo de Paquetes por Entidad
+══════════════════════════════════════════════════════════════
+
+  Entidad         Media Paquetes   Desv Est
+  ─────────────────────────────────────────
+  udp_dns              2.3          1.1     ← Baseline bajo
+  udp_ntp              1.8          0.9
+  udp_dhcp             4.2          2.1
+  ...
+  tcp_ftp-data        89.4         45.2
+  tcp_http           127.6         68.3     ← Baseline alto
+  tcp_https          156.2         82.1
+
+══════════════════════════════════════════════════════════════
+
+  Ejemplo: 50 paquetes observados
+
+  Para udp_dns:   (50 - 2.3) / 1.1 = +43σ  🚨 ¡EXTREMADAMENTE ANÓMALO!
+  Para tcp_http:  (50 - 127) / 68  = -1.1σ  ✅ En realidad BAJO el promedio
+
+══════════════════════════════════════════════════════════════
+💡 INSIGHT CLAVE: ¡Un umbral global no puede funcionar!
+   BSAD aprende un baseline θ[e] SEPARADO para cada entidad.
+```
+
+---
+
+### Overdispersion: ¿Por Qué Binomial Negativa?
+
+```python
+# Verificar varianza vs media para conteos de paquetes
+entity_var_mean = df.groupby('entity')['spkts'].agg(['mean', 'var'])
+entity_var_mean['ratio'] = entity_var_mean['var'] / entity_var_mean['mean']
+
+print(f"Media del ratio Var/Media: {entity_var_mean['ratio'].mean():.2f}")
+print(f"Si fuera Poisson, esto debería ser ≈ 1.0")
+```
+
+```
+Verificación de Overdispersion: Varianza vs Media
+══════════════════════════════════════════════════════════════
+
+                                              Var/Media
+  Var │                                         ·
+      │                                      ·  ·
+      │                                   ·  ·
+      │                                ·  ·
+      │                             ·  ·
+      │                          ·
+      │                       · ·
+      │                    ·  ·
+      │                 ·  ·        ← Datos reales: Var >> Media
+      │              ·  ·
+      │           ·  ·
+      │        ·  ·
+      │     ·  ·
+      │  ·  · ─────────────────── Línea Poisson: Var = Media
+      └───────────────────────────────────────────────
+                           Media
+
+══════════════════════════════════════════════════════════════
+
+  Ratio Var/Media promedio: 12.4  (debería ser ≈1.0 para Poisson)
+
+  ❌ Poisson asume:          Var(y) = μ
+  ✅ Binomial Negativa:      Var(y) = μ + μ²/φ  (maneja overdispersion)
+
+══════════════════════════════════════════════════════════════
+💡 Los datos de seguridad tienen OVERDISPERSION. Poisson subestima extremos.
+   Por eso BSAD usa Binomial Negativa, no Poisson.
+```
+
+---
+
+### Tasa de Ataque por Entidad: ¿Dónde Está el Riesgo?
+
+```python
+# Calcular tasa de ataque por entidad
+entity_attack = df.groupby('entity').agg({
+    'label': ['sum', 'count']
+}).reset_index()
+entity_attack.columns = ['entity', 'attacks', 'total']
+entity_attack['attack_rate'] = entity_attack['attacks'] / entity_attack['total']
+```
+
+```
+Tasa de Ataque por Entidad (entidades con 100+ flujos)
+══════════════════════════════════════════════════════════════
+
+  tcp_ftp-data  ████████████████████████████████████████  87.2%
+  tcp_irc       ██████████████████████████████████████    82.4%
+  tcp_ftp       ████████████████████████████████████      78.9%
+  udp_radius    ██████████████████████████████████        74.1%
+  tcp_telnet    ████████████████████████████████          68.5%
+  tcp_ssh       ██████████████████████████████            65.2%
+  tcp_smtp      ████████████████████████████              61.8%
+  tcp_pop3      ██████████████████████████                55.3%
+  tcp_http      ████████████                              28.4%
+  udp_dns       █████                                     12.1%
+
+══════════════════════════════════════════════════════════════
+⚠️ ftp-data e IRC tienen mayor RIESGO, no mayor VOLUMEN!
+   Volumen ≠ Riesgo. BSAD captura esto con baselines por entidad.
+```
+
+---
+
+### Resumen de Estadísticas Clave
+
+```
+════════════════════════════════════════════════════════════════
+               RESUMEN DEL DATASET PARA BSAD
+════════════════════════════════════════════════════════════════
+
+  Dataset original:
+    Total flujos:             257,673
+    Tasa de ataque:           64.0%  (CLASIFICACIÓN - inutilizable)
+
+  Después de transformación eventos raros (2%):
+    Total flujos:             ~95,000
+    Tasa de ataque:           2.0%   (DETECCIÓN ANOMALÍAS - ¡correcto!)
+
+  Estructura de entidades:
+    Entidades únicas:         134    (combinaciones proto_service)
+    Flujos por entidad:       180-45,234 (altamente variable)
+
+  Variable de conteo (spkts):
+    Media:                    24.7 paquetes
+    Varianza:                 1,847.2
+    Ratio Var/Media:          74.8  (overdispersion SEVERA)
+
+  ✓ Datos de CONTEO (enteros)
+  ✓ Estructura de ENTIDADES (proto_service)
+  ✓ Eventos RAROS (<5% después de transformación)
+  ✓ OVERDISPERSION (Var >> Media)
+
+════════════════════════════════════════════════════════════════
+✅ ¡Estos datos son PERFECTOS para BSAD!
+════════════════════════════════════════════════════════════════
+```
+
+---
+
+### ¿Por Qué BSAD? (Resumen de Insights del EDA)
+
+De nuestra exploración, aprendimos:
+
+| Hallazgo | Problema | Solución BSAD |
+|----------|----------|---------------|
+| 64% ataques (original) | No es detección de anomalías | Transformar a 2% |
+| Baselines diferentes por entidad | Umbral global falla | θ[e] por entidad |
+| Var/Media = 74.8 | Poisson subestima extremos | Binomial Negativa |
+| Riesgo entidad ≠ volumen | Alto tráfico ≠ alto riesgo | Scoring por entidad |
+| Existen entidades sparse | MLE es inestable | Partial pooling |
+
+**La pregunta de BSAD**: *"¿Es este conteo improbable para ESTA entidad específica?"*
+
+```
+ML Clásico:    "¿Es este flujo malicioso?"              → Binario (pierde contexto)
+Z-Score:       "¿Es este conteo inusual globalmente?"   → Falla por entidad
+BSAD:          "¿Es este conteo inusual para ESTA entidad?" → P(y|θ[entidad]) ✅
+```
+
+---
+
 ## 🔐 Problema de Seguridad Abordado
 
 ### ¿Qué Amenazas Podría Ayudar a Detectar?

@@ -1,6 +1,6 @@
 <div align="center">
 
-# 🛡️ BSAD: Bayesian Security Anomaly Detection Part 1
+# 🛡️ BSAD: Bayesian Security Anomaly Detection
 
 **Rare-event detection for security count data using hierarchical Bayesian modeling**
 

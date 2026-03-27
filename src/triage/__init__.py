@@ -8,17 +8,17 @@ This module transforms anomaly scores into actionable SOC workflows:
 - Entity context for analyst prioritization
 """
 
-from .risk_score import compute_risk_score, RiskScorer
-from .calibrate_thresholds import calibrate_threshold, AlertBudget, build_alert_budget_curve
-from .ranking_metrics import (
-    precision_at_k,
-    recall_at_k,
-    fpr_at_fixed_recall,
-    alerts_per_k_windows,
-    workload_reduction,
-    ranking_report
-)
+from .calibrate_thresholds import AlertBudget, build_alert_budget_curve, calibrate_threshold
 from .entity_context import EntityContext, build_entity_history, enrich_alerts
+from .ranking_metrics import (
+    alerts_per_k_windows,
+    fpr_at_fixed_recall,
+    precision_at_k,
+    ranking_report,
+    recall_at_k,
+    workload_reduction,
+)
+from .risk_score import RiskScorer, compute_risk_score
 
 __all__ = [
     "compute_risk_score",

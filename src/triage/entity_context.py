@@ -9,10 +9,10 @@ For each alert, provide:
 - Confidence level interpretation
 """
 
+from dataclasses import dataclass, field
+
 import numpy as np
 import pandas as pd
-from dataclasses import dataclass, field
-from typing import Dict, List, Optional
 
 
 @dataclass
@@ -33,7 +33,7 @@ class EntityContext:
     historical_alerts: int  # Past alerts for this entity
     confidence: str  # "high", "medium", "low"
 
-    def to_dict(self) -> Dict:
+    def to_dict(self) -> dict:
         return {
             "entity_id": self.entity_id,
             "baseline_mean": self.baseline_mean,
@@ -95,15 +95,15 @@ class EntityHistory:
     """
     Track historical behavior for all entities.
     """
-    entity_stats: Dict[str, Dict] = field(default_factory=dict)
-    alert_history: Dict[str, List] = field(default_factory=dict)
+    entity_stats: dict[str, dict] = field(default_factory=dict)
+    alert_history: dict[str, list] = field(default_factory=dict)
 
     def update(
         self,
         entity_id: str,
         value: float,
         is_alert: bool = False,
-        timestamp: Optional[str] = None,
+        timestamp: str | None = None,
     ):
         """Update entity statistics with new observation."""
         if entity_id not in self.entity_stats:
@@ -123,7 +123,7 @@ class EntityHistory:
                 "timestamp": timestamp,
             })
 
-    def get_stats(self, entity_id: str) -> Dict:
+    def get_stats(self, entity_id: str) -> dict:
         """Get statistics for an entity."""
         if entity_id not in self.entity_stats:
             return {"mean": 0, "std": 0, "count": 0}
@@ -147,7 +147,7 @@ def build_entity_history(
     entity_col: str = "entity",
     value_col: str = "event_count",
     score_col: str = "anomaly_score",
-    alert_threshold: Optional[float] = None,
+    alert_threshold: float | None = None,
 ) -> EntityHistory:
     """
     Build entity history from a scored DataFrame.
@@ -185,9 +185,9 @@ def enrich_alerts(
     entity_col: str = "entity",
     value_col: str = "event_count",
     score_col: str = "anomaly_score",
-    score_std_col: Optional[str] = "score_std",
+    score_std_col: str | None = "score_std",
     top_k: int = 100,
-) -> List[Dict]:
+) -> list[dict]:
     """
     Enrich top alerts with entity context.
 

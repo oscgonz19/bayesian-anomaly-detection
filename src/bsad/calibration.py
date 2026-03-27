@@ -11,10 +11,10 @@ Metrics:
 - Coverage analysis for credible intervals
 """
 
+
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
-from typing import Dict, Tuple, Optional
 from scipy.special import expit  # Sigmoid
 
 
@@ -57,7 +57,7 @@ def expected_calibration_error(
     y_true: np.ndarray,
     probs: np.ndarray,
     n_bins: int = 10
-) -> Tuple[float, Dict]:
+) -> tuple[float, dict]:
     """
     Compute Expected Calibration Error (ECE).
 
@@ -134,9 +134,9 @@ def reliability_diagram(
     y_true: np.ndarray,
     probs: np.ndarray,
     n_bins: int = 10,
-    ax: Optional[plt.Axes] = None,
+    ax: plt.Axes | None = None,
     title: str = 'Reliability Diagram'
-) -> Tuple[plt.Figure, Dict]:
+) -> tuple[plt.Figure, dict]:
     """
     Create reliability diagram (calibration plot).
 
@@ -161,8 +161,6 @@ def reliability_diagram(
     bins_with_data = [b for b in details['bins'] if b['n_samples'] > 0]
     confidences = [b['confidence'] for b in bins_with_data]
     accuracies = [b['accuracy'] for b in bins_with_data]
-    n_samples = [b['n_samples'] for b in bins_with_data]
-
     # Perfect calibration line
     ax.plot([0, 1], [0, 1], 'k--', label='Perfect calibration', alpha=0.7)
 
@@ -203,7 +201,7 @@ def interval_coverage(
     lower: np.ndarray,
     upper: np.ndarray,
     nominal_coverage: float = 0.9
-) -> Dict[str, float]:
+) -> dict[str, float]:
     """
     Check if credible intervals have correct coverage.
 
@@ -237,7 +235,7 @@ def calibration_report(
     score_column: str = 'anomaly_score',
     label_column: str = 'has_attack',
     n_bins: int = 10
-) -> Dict:
+) -> dict:
     """
     Generate full calibration report.
 
@@ -287,7 +285,7 @@ def calibration_report(
 
 def plot_calibration_comparison(
     scored_df: pd.DataFrame,
-    output_path: Optional[str] = None,
+    output_path: str | None = None,
     score_column: str = 'anomaly_score',
     label_column: str = 'has_attack'
 ) -> plt.Figure:

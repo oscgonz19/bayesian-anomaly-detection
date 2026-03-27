@@ -8,10 +8,10 @@ We need to incorporate:
 - Entity context (is this entity usually noisy?)
 """
 
+from dataclasses import dataclass
+
 import numpy as np
 import pandas as pd
-from dataclasses import dataclass
-from typing import Optional
 
 
 @dataclass
@@ -41,8 +41,8 @@ class RiskScorer:
     def compute(
         self,
         anomaly_scores: np.ndarray,
-        score_std: Optional[np.ndarray] = None,
-        entity_history_counts: Optional[np.ndarray] = None,
+        score_std: np.ndarray | None = None,
+        entity_history_counts: np.ndarray | None = None,
     ) -> np.ndarray:
         """
         Compute composite risk scores.
@@ -91,8 +91,8 @@ class RiskScorer:
 def compute_risk_score(
     df: pd.DataFrame,
     score_col: str = "anomaly_score",
-    std_col: Optional[str] = "score_std",
-    entity_col: Optional[str] = "entity",
+    std_col: str | None = "score_std",
+    entity_col: str | None = "entity",
     weights: tuple = (0.5, 0.3, 0.2),
 ) -> pd.Series:
     """

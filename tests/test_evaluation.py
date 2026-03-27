@@ -1,7 +1,6 @@
 """Tests for evaluation metrics module."""
 
 import numpy as np
-import pytest
 
 from bsad.evaluation import (
     compute_all_metrics,

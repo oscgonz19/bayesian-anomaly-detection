@@ -8,9 +8,9 @@ What matters is:
 - How many false positives per true positive?
 """
 
+
 import numpy as np
 import pandas as pd
-from typing import List, Dict, Optional
 from sklearn.metrics import roc_curve
 
 
@@ -129,7 +129,7 @@ def workload_reduction(
     scores_baseline: np.ndarray,
     scores_model: np.ndarray,
     target_recall: float = 0.3,
-) -> Dict[str, float]:
+) -> dict[str, float]:
     """
     Workload reduction compared to baseline.
 
@@ -160,8 +160,8 @@ def workload_reduction(
 def ranking_report(
     y_true: np.ndarray,
     scores: np.ndarray,
-    ks: List[int] = [10, 25, 50, 100],
-    recalls: List[float] = [0.1, 0.2, 0.3, 0.5],
+    ks: list[int] = [10, 25, 50, 100],
+    recalls: list[float] = [0.1, 0.2, 0.3, 0.5],
 ) -> pd.DataFrame:
     """
     Generate comprehensive ranking metrics report.

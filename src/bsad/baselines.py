@@ -17,17 +17,17 @@ Generic baselines (for reference, not count-specific):
 8. OneClassSVM
 """
 
+import warnings
+from dataclasses import dataclass
+from typing import Any, Protocol
+
 import numpy as np
 import pandas as pd
 from scipy import stats
-from scipy.special import logsumexp
 from sklearn.ensemble import IsolationForest
 from sklearn.neighbors import LocalOutlierFactor
-from sklearn.svm import OneClassSVM
 from sklearn.preprocessing import StandardScaler
-from typing import Protocol, Dict, Any, Optional
-from dataclasses import dataclass
-import warnings
+from sklearn.svm import OneClassSVM
 
 
 class AnomalyScorer(Protocol):
@@ -47,7 +47,7 @@ class BaselineResult:
     """Container for baseline results."""
     name: str
     scores: np.ndarray
-    params: Dict[str, Any]
+    params: dict[str, Any]
     fit_time: float = 0.0
 
 
@@ -67,7 +67,7 @@ class NB_MLE:
 
     def __init__(self, min_obs_per_entity: int = 3):
         self.min_obs = min_obs_per_entity
-        self.entity_params: Dict[int, tuple] = {}
+        self.entity_params: dict[int, tuple] = {}
         self.global_params: tuple = (1.0, 1.0)  # Fallback
 
     def fit(self, y: np.ndarray, entity_idx: np.ndarray) -> "NB_MLE":
@@ -136,7 +136,7 @@ class NB_EmpiricalBayes:
 
     def __init__(self, shrinkage_strength: float = 5.0):
         self.k = shrinkage_strength
-        self.entity_params: Dict[int, tuple] = {}
+        self.entity_params: dict[int, tuple] = {}
         self.global_mu: float = 1.0
         self.global_alpha: float = 1.0
 
@@ -201,7 +201,7 @@ class GLMM_NB:
 
     def __init__(self):
         self.intercept: float = 0.0
-        self.random_effects: Dict[int, float] = {}
+        self.random_effects: dict[int, float] = {}
         self.alpha: float = 1.0
         self._use_statsmodels: bool = False
 
@@ -311,7 +311,7 @@ class ZScoreBaseline:
 
     def __init__(self, min_obs: int = 3):
         self.min_obs = min_obs
-        self.entity_stats: Dict[int, tuple] = {}
+        self.entity_stats: dict[int, tuple] = {}
         self.global_mean: float = 0.0
         self.global_std: float = 1.0
 
@@ -446,9 +446,9 @@ class GenericBaselines:
 def run_all_baselines(
     y: np.ndarray,
     entity_idx: np.ndarray,
-    modeling_df: Optional[pd.DataFrame] = None,
+    modeling_df: pd.DataFrame | None = None,
     include_generic: bool = True
-) -> Dict[str, np.ndarray]:
+) -> dict[str, np.ndarray]:
     """
     Run all baseline models and return scores.
 

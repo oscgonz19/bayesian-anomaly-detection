@@ -1,7 +1,7 @@
 """Tests for synthetic data generator."""
 
+import numpy as np
 import pandas as pd
-import pytest
 
 from bsad.data_generator import (
     GeneratorConfig,
@@ -9,7 +9,6 @@ from bsad.data_generator import (
     generate_synthetic_data,
     inject_brute_force_attack,
 )
-import numpy as np
 
 
 class TestGeneratorConfig:

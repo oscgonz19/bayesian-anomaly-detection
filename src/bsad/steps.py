@@ -45,7 +45,12 @@ from bsad.config import Settings
 from bsad.data_generator import GeneratorConfig, generate_synthetic_data
 from bsad.features import FeatureConfig, build_modeling_table
 from bsad.features import get_model_arrays as _get_model_arrays
-from bsad.model import ModelConfig, build_hierarchical_negbinom_model, fit_model, get_model_diagnostics
+from bsad.model import (
+    ModelConfig,
+    build_hierarchical_negbinom_model,
+    fit_model,
+    get_model_diagnostics,
+)
 
 AttackType = Literal["brute_force", "credential_stuffing", "geo_anomaly", "device_anomaly", "none"]
 

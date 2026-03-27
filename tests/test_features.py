@@ -1,7 +1,6 @@
 """Tests for feature engineering module."""
 
 import numpy as np
-import pandas as pd
 import pytest
 
 from bsad.data_generator import GeneratorConfig, generate_synthetic_data

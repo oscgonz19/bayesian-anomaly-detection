@@ -21,12 +21,12 @@ WHAT IT DOES NOT MODEL
 """
 
 import hashlib
-from dataclasses import dataclass, field
+from dataclasses import dataclass
+from datetime import datetime, timedelta
 from typing import Literal
 
 import numpy as np
 import pandas as pd
-from datetime import datetime, timedelta
 
 AttackType = Literal["brute_force", "credential_stuffing", "geo_anomaly", "device_anomaly", "none"]
 

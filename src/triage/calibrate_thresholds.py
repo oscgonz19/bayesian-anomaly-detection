@@ -8,11 +8,11 @@ Instead of maximizing detection, we optimize for:
 - Maximum workload reduction
 """
 
+from dataclasses import dataclass
+
 import numpy as np
 import pandas as pd
-from dataclasses import dataclass
-from typing import Optional, Tuple, Dict
-from sklearn.metrics import roc_curve, precision_recall_curve
+from sklearn.metrics import roc_curve
 
 
 @dataclass
@@ -31,9 +31,9 @@ class AlertBudget:
     def calibrate(
         self,
         scores: np.ndarray,
-        y_true: Optional[np.ndarray] = None,
+        y_true: np.ndarray | None = None,
         n_windows_per_day: int = 1000,
-    ) -> Dict:
+    ) -> dict:
         """
         Find threshold that satisfies the budget constraint.
 
@@ -55,8 +55,8 @@ class AlertBudget:
             raise ValueError(f"Unknown mode: {self.mode}")
 
     def _calibrate_fixed_alerts(
-        self, scores: np.ndarray, y_true: Optional[np.ndarray], n_windows_per_day: int
-    ) -> Dict:
+        self, scores: np.ndarray, y_true: np.ndarray | None, n_windows_per_day: int
+    ) -> dict:
         """Set threshold to generate exactly target alerts per day."""
         # Target alerts as fraction of windows
         target_fraction = self.target / n_windows_per_day
@@ -86,7 +86,7 @@ class AlertBudget:
 
     def _calibrate_fixed_recall(
         self, scores: np.ndarray, y_true: np.ndarray
-    ) -> Dict:
+    ) -> dict:
         """Set threshold to achieve target recall."""
         if y_true is None:
             raise ValueError("y_true required for fixed_recall mode")
@@ -117,7 +117,7 @@ class AlertBudget:
 
     def _calibrate_fixed_fpr(
         self, scores: np.ndarray, y_true: np.ndarray
-    ) -> Dict:
+    ) -> dict:
         """Set threshold to achieve target FPR."""
         if y_true is None:
             raise ValueError("y_true required for fixed_fpr mode")
@@ -153,7 +153,7 @@ def calibrate_threshold(
     mode: str = "fixed_recall",
     target: float = 0.3,
     n_windows_per_day: int = 1000,
-) -> Dict:
+) -> dict:
     """
     Convenience function for threshold calibration.
 

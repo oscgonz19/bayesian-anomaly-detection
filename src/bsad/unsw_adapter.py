@@ -13,7 +13,6 @@ Key Mappings:
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Literal
 
 import numpy as np
 import pandas as pd
@@ -226,7 +225,7 @@ def summary_statistics(modeling_df: pd.DataFrame, metadata: dict) -> None:
     print("=" * 70)
     print(f"\nSource: {metadata['source']}")
     print(f"Window size: {metadata['window_size']} flows per window")
-    print(f"\nDimensions:")
+    print("\nDimensions:")
     print(f"  Total windows: {metadata['n_windows']:,}")
     print(f"  Unique entities: {metadata['n_entities']}")
     print(f"  Attack rate: {metadata['attack_rate']:.2%}")
@@ -237,7 +236,7 @@ def summary_statistics(modeling_df: pd.DataFrame, metadata: dict) -> None:
     print(f"  Variance: {modeling_df['event_count'].var():.2f}")
     print(f"  Var/Mean ratio: {modeling_df['event_count'].var()/modeling_df['event_count'].mean():.2f}")
 
-    print(f"\nAttack distribution:")
+    print("\nAttack distribution:")
     print(modeling_df["attack_type"].value_counts().to_string())
 
     print("\nTop 10 entities by window count:")
@@ -269,7 +268,7 @@ if __name__ == "__main__":
 
     # Get arrays for model
     arrays = get_model_arrays(modeling_df)
-    print(f"\nModel arrays ready:")
+    print("\nModel arrays ready:")
     print(f"  y shape: {arrays['y'].shape}")
     print(f"  entity_idx shape: {arrays['entity_idx'].shape}")
     print(f"  n_entities: {arrays['n_entities']}")

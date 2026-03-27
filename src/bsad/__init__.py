@@ -21,25 +21,24 @@ Calibration:
 __version__ = "0.2.0"
 
 # Main exports for simple usage
-from bsad.config import Settings
-from bsad.pipeline import Pipeline, PipelineState
-
 # Baselines for comparison
 from bsad.baselines import (
-    NB_MLE,
-    NB_EmpiricalBayes,
     GLMM_NB,
-    ZScoreBaseline,
+    NB_MLE,
     GlobalNB,
+    NB_EmpiricalBayes,
+    ZScoreBaseline,
     run_all_baselines,
 )
 
 # Calibration
 from bsad.calibration import (
     calibration_report,
-    reliability_diagram,
     expected_calibration_error,
+    reliability_diagram,
 )
+from bsad.config import Settings
+from bsad.pipeline import Pipeline, PipelineState
 
 __all__ = [
     # Core

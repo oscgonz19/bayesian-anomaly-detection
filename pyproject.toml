@@ -10,7 +10,7 @@ readme = "README.md"
 license = {text = "MIT"}
 requires-python = ">=3.10"
 authors = [
-    {name = "Your Name", email = "your.email@example.com"}
+    {name = "oscgonz19"}
 ]
 classifiers = [
     "Development Status :: 3 - Alpha",
@@ -55,9 +55,9 @@ streamlit = [
 bsad = "bsad.cli:app"
 
 [project.urls]
-Homepage = "https://github.com/yourusername/bayesian-security-anomaly-detection"
-Documentation = "https://github.com/yourusername/bayesian-security-anomaly-detection#readme"
-Repository = "https://github.com/yourusername/bayesian-security-anomaly-detection"
+Homepage = "https://github.com/oscgonz19/bayesian-security-anomaly-detection"
+Documentation = "https://github.com/oscgonz19/bayesian-security-anomaly-detection#readme"
+Repository = "https://github.com/oscgonz19/bayesian-security-anomaly-detection"
 
 [tool.setuptools.packages.find]
 where = ["src"]
@@ -78,6 +78,9 @@ ignore = ["E501"]
 testpaths = ["tests"]
 python_files = ["test_*.py"]
 addopts = "-v --tb=short"
+markers = [
+    "slow: marks tests as slow (run with -m slow or excluded with -m 'not slow')",
+]
 
 [tool.mypy]
 python_version = "3.10"

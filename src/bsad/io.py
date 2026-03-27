@@ -1,14 +1,86 @@
 """
 File I/O helpers for BSAD pipeline.
 
-Centralized load/save functions for parquet, NetCDF, and JSON.
+Centralized load/save functions for parquet, NetCDF, JSON, and run metadata.
 """
 
 import json
+import subprocess
+from dataclasses import asdict, dataclass, field
+from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any
 
 import arviz as az
 import pandas as pd
+
+
+# =============================================================================
+# Run Metadata
+# =============================================================================
+
+
+@dataclass
+class RunMetadata:
+    """
+    Snapshot of run configuration for reproducibility and auditing.
+
+    Saved alongside model outputs so every artifact is traceable to
+    the exact settings and environment that produced it.
+    """
+
+    timestamp: str = field(
+        default_factory=lambda: datetime.now(timezone.utc).isoformat()
+    )
+    random_seed: int = 42
+    git_commit: str | None = None
+    config_snapshot: dict[str, Any] = field(default_factory=dict)
+
+    @classmethod
+    def from_settings(cls, settings: Any) -> "RunMetadata":
+        """
+        Build RunMetadata from a Settings object.
+
+        Captures git commit if the working directory is inside a git repo.
+        """
+        git_commit = _get_git_commit()
+        # Snapshot only the primitive settings fields (skip Path objects)
+        snapshot = {}
+        if hasattr(settings, "__dataclass_fields__"):
+            for f_name in settings.__dataclass_fields__:
+                val = getattr(settings, f_name)
+                if isinstance(val, (int, float, str, bool, tuple, list)):
+                    snapshot[f_name] = val
+        return cls(
+            random_seed=getattr(settings, "random_seed", 42),
+            git_commit=git_commit,
+            config_snapshot=snapshot,
+        )
+
+    def save(self, path: Path) -> None:
+        """Persist metadata as JSON."""
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with open(path, "w") as f:
+            json.dump(asdict(self), f, indent=2, default=str)
+
+
+def save_run_metadata(metadata: RunMetadata, path: Path) -> None:
+    """Save RunMetadata to JSON at the given path."""
+    metadata.save(path)
+
+
+def _get_git_commit() -> str | None:
+    """Return the current HEAD commit hash, or None if not in a git repo."""
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "--short", "HEAD"],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        return result.stdout.strip()
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        return None
 
 
 # =============================================================================

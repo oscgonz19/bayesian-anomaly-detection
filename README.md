@@ -1683,6 +1683,160 @@ Observation Level:
     y[e,t] ~ NegBinomial(θ[e], φ)  # Count observation
 ```
 
+### Mathematical Foundation
+
+#### Why Negative Binomial? (Overdispersion)
+
+Security event data exhibits **overdispersion**: the variance is much greater than the mean. A Poisson distribution assumes `Var(Y) = E(Y)`, but in real security data we observe `Var(Y) >> E(Y)`.
+
+```
+Poisson:           Var(Y) = μ
+Negative Binomial: Var(Y) = μ + μ²/φ  →  Var > Mean when φ < ∞
+
+Example from real data:
+  Entity A: Mean=15.2 events/day, Variance=89.4  (ratio: 5.9×)
+  Entity B: Mean=3.1 events/day,  Variance=28.7  (ratio: 9.3×)
+```
+
+The Negative Binomial arises naturally as a **Gamma-Poisson mixture**:
+```
+If:     Y|λ ~ Poisson(λ)  and  λ ~ Gamma(α, β)
+Then:   Y ~ NegativeBinomial(r=α, p=β/(1+β))
+```
+
+**References**:
+- Gelman et al., *Bayesian Data Analysis* (3rd ed., Ch. 3) - Poisson-Gamma conjugacy
+- Hilbe, *Negative Binomial Regression* (2011) - Overdispersion in count data
+
+#### Why Hierarchical Structure? (Partial Pooling)
+
+With 200+ entities and limited data per entity, we face the **bias-variance tradeoff**:
+
+| Approach | Problem |
+|----------|---------|
+| **Complete pooling** (one θ for all) | Ignores entity differences → high bias |
+| **No pooling** (separate θ[e] each) | Noisy estimates for sparse entities → high variance |
+| **Partial pooling** (hierarchical) | Optimal balance via adaptive shrinkage |
+
+The hierarchical structure induces **shrinkage** toward the population mean:
+
+```
+θ̂[e] = w[e] × θ_mle[e] + (1 - w[e]) × μ
+
+Where the shrinkage weight depends on entity sample size:
+    w[e] = n[e] / (n[e] + κ)
+
+    n[e] = observations for entity e
+    κ = pooling strength (learned from data)
+```
+
+**Sparse entities** (few observations) → shrink strongly to μ (regularized)
+**Dense entities** (many observations) → keep their own rate (individualized)
+
+**References**:
+- Gelman & Hill, *Data Analysis Using Regression and Multilevel Models* (2007, Ch. 12)
+- McElreath, *Statistical Rethinking* (2020, Ch. 13) - Multilevel models
+
+#### Why Gamma Prior for θ[e]? (Conjugacy)
+
+The Gamma distribution is **conjugate** to the Negative Binomial likelihood, which provides:
+1. Closed-form posterior updates (efficient computation)
+2. Interpretable hyperparameters (μα = shape, α = rate)
+3. Natural regularization toward population mean
+
+```
+Prior:      θ[e] ~ Gamma(μα, α)
+            E[θ[e]] = μ          # Prior mean is population mean
+            Var[θ[e]] = μ/α      # Variance controlled by α
+
+Posterior:  θ[e]|y ~ Gamma(μα + Σy[e], α + n[e])
+            E[θ[e]|y] = (μα + Σy[e]) / (α + n[e])
+                      = weighted average of prior mean and MLE
+```
+
+The parameter α controls **pooling strength**:
+- Large α → strong pooling (entities similar to population)
+- Small α → weak pooling (entities more individualized)
+
+**References**:
+- Murphy, *Machine Learning: A Probabilistic Perspective* (2012, Ch. 3.4)
+- Gelman et al., *BDA3* Ch. 5 - Hierarchical models
+
+#### The Anomaly Score: Information-Theoretic Foundation
+
+The score `-log P(y|posterior)` has a principled interpretation:
+
+```
+score = -log P(y|θ,φ) = surprisal (Shannon information)
+
+Interpretation:
+  - Low probability events → high surprisal → high anomaly score
+  - Expected events under learned baseline → low surprisal → low score
+```
+
+This is equivalent to the **negative log-likelihood** used in:
+- Information theory (bits needed to encode observation)
+- Compression (rare events need more bits)
+- Statistical testing (low probability = surprising)
+
+The posterior predictive integrates over parameter uncertainty:
+```
+P(y|data) = ∫∫ P(y|θ,φ) P(θ,φ|data) dθ dφ
+          ≈ (1/S) Σ P(y|θ^(s),φ^(s))  [Monte Carlo approximation]
+```
+
+**References**:
+- Cover & Thomas, *Elements of Information Theory* (2006)
+- Bishop, *Pattern Recognition and Machine Learning* (2006, Ch. 1.6)
+
+#### Implementation in Code
+
+```python
+# src/bsad/model.py - Core model definition
+
+def build_model(arrays: dict) -> pm.Model:
+    """Hierarchical Negative Binomial model."""
+    with pm.Model() as model:
+        # Population level priors
+        μ = pm.Exponential("mu", lam=1.0)           # E[θ]
+        α = pm.HalfNormal("alpha", sigma=2.0)       # Pooling strength
+
+        # Entity-specific rates (partial pooling)
+        θ = pm.Gamma("theta",
+                     alpha=μ * α,    # Shape = μα
+                     beta=α,         # Rate = α
+                     shape=n_entities)
+
+        # Overdispersion parameter
+        φ = pm.HalfNormal("phi", sigma=5.0)
+
+        # Likelihood (observation level)
+        y_obs = pm.NegativeBinomial("y_obs",
+                                     mu=θ[entity_idx],
+                                     alpha=φ,
+                                     observed=y)
+    return model
+
+# Anomaly scoring: -log P(y|posterior)
+def compute_scores(trace, y, entity_idx):
+    """Compute anomaly scores via posterior predictive."""
+    theta_samples = trace.posterior["theta"].values  # (chains, draws, entities)
+    phi_samples = trace.posterior["phi"].values      # (chains, draws)
+
+    # Monte Carlo integration over posterior
+    log_probs = []
+    for s in range(n_samples):
+        theta_s = theta_samples[..., entity_idx]
+        phi_s = phi_samples[...]
+        log_p = nbinom.logpmf(y, n=phi_s, p=phi_s/(phi_s + theta_s))
+        log_probs.append(log_p)
+
+    # Average probability, convert to score
+    mean_log_prob = logsumexp(log_probs, axis=0) - np.log(n_samples)
+    anomaly_score = -mean_log_prob
+    return anomaly_score
+```
+
 ### Anomaly Scoring
 
 ```

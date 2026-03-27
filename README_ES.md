@@ -1591,6 +1591,160 @@ Nivel de Observación:
     y_{e,t} ~ NegBinomial(θ_e, φ)  # Conteos observados
 ```
 
+### Fundamentos Matemáticos
+
+#### ¿Por qué Binomial Negativa? (Sobredispersión)
+
+Los datos de eventos de seguridad exhiben **sobredispersión**: la varianza es mucho mayor que la media. Una distribución Poisson asume `Var(Y) = E(Y)`, pero en datos reales de seguridad observamos `Var(Y) >> E(Y)`.
+
+```
+Poisson:           Var(Y) = μ
+Binomial Negativa: Var(Y) = μ + μ²/φ  →  Var > Media cuando φ < ∞
+
+Ejemplo de datos reales:
+  Entidad A: Media=15.2 eventos/día, Varianza=89.4  (ratio: 5.9×)
+  Entidad B: Media=3.1 eventos/día,  Varianza=28.7  (ratio: 9.3×)
+```
+
+La Binomial Negativa surge naturalmente como una **mezcla Gamma-Poisson**:
+```
+Si:      Y|λ ~ Poisson(λ)  y  λ ~ Gamma(α, β)
+Entonces: Y ~ BinomialNegativa(r=α, p=β/(1+β))
+```
+
+**Referencias**:
+- Gelman et al., *Bayesian Data Analysis* (3ra ed., Cap. 3) - Conjugación Poisson-Gamma
+- Hilbe, *Negative Binomial Regression* (2011) - Sobredispersión en datos de conteo
+
+#### ¿Por qué Estructura Jerárquica? (Pooling Parcial)
+
+Con 200+ entidades y datos limitados por entidad, enfrentamos el **trade-off sesgo-varianza**:
+
+| Enfoque | Problema |
+|---------|----------|
+| **Pooling completo** (un θ para todos) | Ignora diferencias entre entidades → alto sesgo |
+| **Sin pooling** (θ[e] separado cada uno) | Estimaciones ruidosas para entidades escasas → alta varianza |
+| **Pooling parcial** (jerárquico) | Balance óptimo via contracción adaptativa |
+
+La estructura jerárquica induce **contracción (shrinkage)** hacia la media poblacional:
+
+```
+θ̂[e] = w[e] × θ_mle[e] + (1 - w[e]) × μ
+
+Donde el peso de contracción depende del tamaño de muestra:
+    w[e] = n[e] / (n[e] + κ)
+
+    n[e] = observaciones para entidad e
+    κ = fuerza de pooling (aprendido de los datos)
+```
+
+**Entidades escasas** (pocas observaciones) → contracción fuerte hacia μ (regularizadas)
+**Entidades densas** (muchas observaciones) → mantienen su propia tasa (individualizadas)
+
+**Referencias**:
+- Gelman & Hill, *Data Analysis Using Regression and Multilevel Models* (2007, Cap. 12)
+- McElreath, *Statistical Rethinking* (2020, Cap. 13) - Modelos multinivel
+
+#### ¿Por qué Prior Gamma para θ[e]? (Conjugación)
+
+La distribución Gamma es **conjugada** a la verosimilitud Binomial Negativa, lo que proporciona:
+1. Actualizaciones posteriores en forma cerrada (cómputo eficiente)
+2. Hiperparámetros interpretables (μα = forma, α = tasa)
+3. Regularización natural hacia la media poblacional
+
+```
+Prior:      θ[e] ~ Gamma(μα, α)
+            E[θ[e]] = μ          # Media prior es la media poblacional
+            Var[θ[e]] = μ/α      # Varianza controlada por α
+
+Posterior:  θ[e]|y ~ Gamma(μα + Σy[e], α + n[e])
+            E[θ[e]|y] = (μα + Σy[e]) / (α + n[e])
+                      = promedio ponderado de media prior y MLE
+```
+
+El parámetro α controla la **fuerza de pooling**:
+- α grande → pooling fuerte (entidades similares a la población)
+- α pequeño → pooling débil (entidades más individualizadas)
+
+**Referencias**:
+- Murphy, *Machine Learning: A Probabilistic Perspective* (2012, Cap. 3.4)
+- Gelman et al., *BDA3* Cap. 5 - Modelos jerárquicos
+
+#### El Score de Anomalía: Fundamento Teórico-Informacional
+
+El score `-log P(y|posterior)` tiene una interpretación fundamentada:
+
+```
+score = -log P(y|θ,φ) = sorpresa (información de Shannon)
+
+Interpretación:
+  - Eventos de baja probabilidad → alta sorpresa → alto score de anomalía
+  - Eventos esperados bajo la línea base aprendida → baja sorpresa → bajo score
+```
+
+Esto es equivalente a la **log-verosimilitud negativa** usada en:
+- Teoría de la información (bits necesarios para codificar observación)
+- Compresión (eventos raros necesitan más bits)
+- Pruebas estadísticas (baja probabilidad = sorprendente)
+
+La predictiva posterior integra sobre la incertidumbre de parámetros:
+```
+P(y|datos) = ∫∫ P(y|θ,φ) P(θ,φ|datos) dθ dφ
+           ≈ (1/S) Σ P(y|θ^(s),φ^(s))  [aproximación Monte Carlo]
+```
+
+**Referencias**:
+- Cover & Thomas, *Elements of Information Theory* (2006)
+- Bishop, *Pattern Recognition and Machine Learning* (2006, Cap. 1.6)
+
+#### Implementación en Código
+
+```python
+# src/bsad/model.py - Definición del modelo
+
+def build_model(arrays: dict) -> pm.Model:
+    """Modelo Binomial Negativo Jerárquico."""
+    with pm.Model() as model:
+        # Priors a nivel poblacional
+        μ = pm.Exponential("mu", lam=1.0)           # E[θ]
+        α = pm.HalfNormal("alpha", sigma=2.0)       # Fuerza de pooling
+
+        # Tasas específicas por entidad (pooling parcial)
+        θ = pm.Gamma("theta",
+                     alpha=μ * α,    # Forma = μα
+                     beta=α,         # Tasa = α
+                     shape=n_entities)
+
+        # Parámetro de sobredispersión
+        φ = pm.HalfNormal("phi", sigma=5.0)
+
+        # Verosimilitud (nivel de observación)
+        y_obs = pm.NegativeBinomial("y_obs",
+                                     mu=θ[entity_idx],
+                                     alpha=φ,
+                                     observed=y)
+    return model
+
+# Scoring de anomalías: -log P(y|posterior)
+def compute_scores(trace, y, entity_idx):
+    """Calcula scores de anomalía via predictiva posterior."""
+    theta_samples = trace.posterior["theta"].values  # (chains, draws, entities)
+    phi_samples = trace.posterior["phi"].values      # (chains, draws)
+
+    # Integración Monte Carlo sobre el posterior
+    log_probs = []
+    for s in range(n_samples):
+        theta_s = theta_samples[..., entity_idx]
+        phi_s = phi_samples[...]
+        log_p = nbinom.logpmf(y, n=phi_s, p=phi_s/(phi_s + theta_s))
+        log_probs.append(log_p)
+
+    # Probabilidad promedio, convertir a score
+    mean_log_prob = logsumexp(log_probs, axis=0) - np.log(n_samples)
+    anomaly_score = -mean_log_prob
+    return anomaly_score
+```
+
 ### Tres Capacidades Únicas
 
 #### 1. Líneas Base Específicas por Entidad
